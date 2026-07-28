@@ -28,6 +28,7 @@ DerivedData/
 .build/
 Packages/
 Package.resolved
+.swiftpm/
 
 ## CocoaPods
 Pods/
@@ -35,5 +36,33 @@ Pods/
 ## Carthage
 Carthage/Build/
 
-## macOS
+## fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+## Xcode automatic signing / provisioning
+*.mobileprovision
+*.provisionprofile
+*.p12
+*.cer
+
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
