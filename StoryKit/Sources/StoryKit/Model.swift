@@ -8,9 +8,18 @@ import Foundation
 /// Stable internal identifier for a line (D11). Identity is content-derived
 /// and assigned by the parser; downstream code treats it as opaque. Authored
 /// numbers are NOT identity — they are validated as a checksum, not used here.
-public struct LineID: Hashable, Sendable {
+public struct LineID: Hashable, Sendable, Codable {
     public let rawValue: String
     public init(_ rawValue: String) { self.rawValue = rawValue }
+
+    // Encoded as a bare string for readable JSON, not {"rawValue": …}.
+    public init(from decoder: Decoder) throws {
+        self.init(try decoder.singleValueContainer().decode(String.self))
+    }
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.singleValueContainer()
+        try container.encode(rawValue)
+    }
 }
 
 /// Panel size authored as a delimited code immediately after the line number:
@@ -18,7 +27,7 @@ public struct LineID: Hashable, Sendable {
 /// identically; export always emits the parenthesized canonical form. A bare
 /// glued letter (legacy `Szoom`) is NOT a size code — the parser keeps the
 /// text verbatim and emits a "possible lost size marker" warning.
-public enum SizeCode: String, Equatable, Sendable {
+public enum SizeCode: String, Equatable, Sendable, Codable {
     case s = "S"
     case m = "M"
     case l = "L"
@@ -30,7 +39,7 @@ public enum SizeCode: String, Equatable, Sendable {
 /// The source nests arbitrarily deep (`15.1.1.1`); the parser flattens
 /// everything below a top-level line into this single ordered child level, in
 /// document order. Children are always leaves — their own `children` is empty.
-public struct Line: Equatable, Sendable {
+public struct Line: Equatable, Sendable, Codable {
     public var id: LineID
     /// Pure line content: the authored number, any recognized size code, and a
     /// leading "Speaker:" label are all stripped (structure/metadata, not
@@ -60,7 +69,7 @@ public struct Line: Equatable, Sendable {
 }
 
 /// A cut (a.k.a. legacy "Scroll Block"): a titled, ordered run of lines.
-public struct Cut: Equatable, Sendable {
+public struct Cut: Equatable, Sendable, Codable {
     /// Cut title with the "Cut N:" / "Scroll Block N:" prefix removed.
     public var title: String
     /// Unnumbered scene-setting prose at the top of the cut, if any, with the
@@ -78,7 +87,7 @@ public struct Cut: Equatable, Sendable {
 
 /// A full episode: an ordered list of cuts plus optional header metadata. Both
 /// source conventions parse to the identical canonical tree (modulo IDs).
-public struct Episode: Equatable, Sendable {
+public struct Episode: Equatable, Sendable, Codable {
     /// The episode GOAL parsed from the header, if present.
     public var goal: String?
     public var cuts: [Cut]

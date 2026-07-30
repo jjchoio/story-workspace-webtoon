@@ -2,44 +2,26 @@
 //  ReadModeView.swift
 //  StoryWorkspace
 //
-//  Phase 1 read-mode render: parse a bundled fixture via StoryKit and show the
-//  full episode with per-cut EP / Cut / Line addressing. Thin shell — all logic
-//  lives in StoryKit; this view only lays the canonical model out.
+//  Pure renderer for a canonical Episode with per-cut EP / Cut / Line
+//  addressing. Loading/persistence lives in ProjectViewModel; this view only
+//  lays out the model it is handed (CLAUDE.md: keep logic out of the shell).
 //
 
 import SwiftUI
 import StoryKit
 
 struct ReadModeView: View {
-    /// Fixture bundled with the app (see StoryWorkspace/EP2-clened.txt).
-    let fixtureName = "EP2-clened"
+    let episode: Episode
+    let warnings: [ParseWarning]
 
     var body: some View {
-        Group {
-            switch load() {
-            case .success(let result):
-                episodeView(result)
-            case .failure(let error):
-                ContentUnavailableView(
-                    "Couldn't load fixture",
-                    systemImage: "doc.questionmark",
-                    description: Text(error.message)
-                )
-            }
-        }
-        .frame(minWidth: 560, minHeight: 640)
-    }
-
-    // MARK: Rendering
-
-    private func episodeView(_ result: ParseResult) -> some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                header(result)
-                if !result.warnings.isEmpty {
-                    warningsBanner(result.warnings)
+            VStack(alignment: .leading, spacing: 20) {
+                header
+                if !warnings.isEmpty {
+                    warningsBanner(warnings)
                 }
-                ForEach(Array(result.episode.cuts.enumerated()), id: \.offset) { cutIndex, cut in
+                ForEach(Array(episode.cuts.enumerated()), id: \.offset) { cutIndex, cut in
                     cutView(number: cutIndex + 1, cut: cut)
                 }
             }
@@ -48,14 +30,16 @@ struct ReadModeView: View {
         }
     }
 
-    private func header(_ result: ParseResult) -> some View {
+    // MARK: Sections
+
+    private var header: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("EP2 — Read Mode")
+            Text("Read Mode")
                 .font(.largeTitle.weight(.bold))
-            Text("\(result.detectedConvention == .legacyScrollBlock ? "Legacy Scroll Block" : "Cut") convention · \(result.episode.cuts.count) cuts · \(result.episode.lineCount) lines")
+            Text("\(episode.cuts.count) cuts · \(episode.lineCount) lines")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
-            if let goal = result.episode.goal {
+            if let goal = episode.goal {
                 Label(goal, systemImage: "target")
                     .font(.callout)
                     .padding(.top, 2)
@@ -94,7 +78,7 @@ struct ReadModeView: View {
 
     private func lineView(cut: Int, number: Int, line: Line) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            lineRow(address: "EP2 / C\(cut) / L\(number)", line: line)
+            lineRow(address: "EP / C\(cut) / L\(number)", line: line)
             ForEach(Array(line.children.enumerated()), id: \.offset) { childIndex, child in
                 lineRow(address: "\(number).\(childIndex + 1)", line: child)
                     .padding(.leading, 28)
@@ -124,26 +108,4 @@ struct ReadModeView: View {
         guard let speaker else { return Text("") }
         return Text("\(speaker): ").font(.body.weight(.semibold))
     }
-
-    // MARK: Loading
-
-    private func load() -> Result<ParseResult, LoadError> {
-        guard let url = Bundle.main.url(forResource: fixtureName, withExtension: "txt") else {
-            return .failure(LoadError(message: "\(fixtureName).txt is not in the app bundle. Confirm it has StoryWorkspace target membership."))
-        }
-        do {
-            let text = try String(contentsOf: url, encoding: .utf8)
-            return .success(try StoryParser.parse(text))
-        } catch {
-            return .failure(LoadError(message: String(describing: error)))
-        }
-    }
-
-    private struct LoadError: Error {
-        let message: String
-    }
-}
-
-#Preview {
-    ReadModeView()
 }
