@@ -11,6 +11,7 @@ import AppKit
 
 struct SettingsPopover: View {
     let storePath: String
+    let onImport: () -> Void
     let onReset: () -> Void
 
     @State private var confirmingReset = false
@@ -18,6 +19,13 @@ struct SettingsPopover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Settings").font(.headline)
+
+            Button(action: onImport) {
+                Label("Import Update…", systemImage: "square.and.arrow.down")
+            }
+            .controlSize(.small)
+
+            Divider()
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Store location")
@@ -37,16 +45,25 @@ struct SettingsPopover: View {
             Divider()
 
             if confirmingReset {
-                HStack(spacing: 8) {
-                    Text("Delete all versions?").font(.caption)
-                    Spacer()
-                    Button("Cancel") { confirmingReset = false }
+                VStack(alignment: .leading, spacing: 8) {
+                    Label(
+                        "This permanently deletes every imported version and the history for this project. It can't be undone.",
+                        systemImage: "exclamationmark.triangle.fill"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
+
+                    HStack(spacing: 8) {
+                        Spacer()
+                        Button("Cancel") { confirmingReset = false }
+                            .controlSize(.small)
+                        Button("Delete", role: .destructive) {
+                            confirmingReset = false
+                            onReset()
+                        }
                         .controlSize(.small)
-                    Button("Reset", role: .destructive) {
-                        confirmingReset = false
-                        onReset()
                     }
-                    .controlSize(.small)
                 }
             } else {
                 Button("Reset store…", role: .destructive) { confirmingReset = true }

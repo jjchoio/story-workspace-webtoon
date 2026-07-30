@@ -68,18 +68,22 @@ struct RootView: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         if case .loaded(let loaded) = model.state {
-            ToolbarItemGroup(placement: .primaryAction) {
-                Button { importing = true } label: {
-                    Label("Import Update", systemImage: "square.and.arrow.down")
-                }
+            ToolbarItem(placement: .primaryAction) {
                 Button { showingSettings.toggle() } label: {
                     Label("Settings", systemImage: "gearshape")
                 }
                 .popover(isPresented: $showingSettings, arrowEdge: .bottom) {
-                    SettingsPopover(storePath: loaded.storePath) {
-                        showingSettings = false
-                        model.resetStore()
-                    }
+                    SettingsPopover(
+                        storePath: loaded.storePath,
+                        onImport: {
+                            showingSettings = false
+                            importing = true
+                        },
+                        onReset: {
+                            showingSettings = false
+                            model.resetStore()
+                        }
+                    )
                 }
             }
         }
