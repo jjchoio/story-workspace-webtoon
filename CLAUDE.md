@@ -21,11 +21,13 @@ mode. No LLM calls, no reviewers, no card UI in this phase.
 ## Structure
 
 - `StoryKit/` — SwiftPM package: parser, canonical model (Episode → Cut →
-  Line, stable IDs), ProjectStore protocol + FileProjectStore. ALL logic
-  lives here so it is testable via `swift test`.
+  Line, stable IDs; Line carries one level of flattened children; Episode
+  carries optional GOAL header metadata), ProjectStore protocol +
+  FileProjectStore. ALL logic lives here so it is testable via `swift test`.
 - App target — thin SwiftUI shell importing StoryKit. Keep logic out.
-- `fixtures/` — Cafe Alameda EP1 in both script conventions (legacy
-  "Scroll Block"/continuous numbering; updated "Cut"/per-cut numbering).
+- `fixtures/` — Cafe Alameda EP2 as `.txt` in both script conventions
+  (`EP2.txt` legacy "Scroll Block"/continuous numbering; `Episode 2
+  (cut).txt` updated "Cut"/per-cut numbering).
 
 ## Conventions
 
@@ -40,6 +42,15 @@ mode. No LLM calls, no reviewers, no card UI in this phase.
   are ignored for structure, validated for gaps (D11).
 - Addressing in code, tests, and UI: `EP / Cut / Line` (per-cut).
 
+## Edit Discipline
+
+- Every changed line must trace to the current request. Don't "improve"
+  adjacent code, reformat untouched lines, or refactor what isn't broken.
+- Clean up orphans YOUR change created (unused imports, variables,
+  functions). Leave pre-existing dead code alone — mention it instead.
+- State assumptions explicitly before implementing. If multiple
+  interpretations of a task exist, present them — don't pick silently.
+  
 ## Working Rules
 
 - If implementation reveals a problem with a documented decision, STOP and

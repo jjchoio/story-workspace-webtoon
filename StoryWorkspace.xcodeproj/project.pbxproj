@@ -6,6 +6,10 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		1D36783B301AFF7D00759E2C /* StoryKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1D36783A301AFF7D00759E2C /* StoryKit */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
 		1D3678343019B1A100759E2C /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -39,6 +43,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1D36783B301AFF7D00759E2C /* StoryKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -90,6 +95,7 @@
 			);
 			name = StoryWorkspace;
 			packageProductDependencies = (
+				1D36783A301AFF7D00759E2C /* StoryKit */,
 			);
 			productName = StoryWorkspace;
 			productReference = 1D36781D3017F74600759E2C /* StoryWorkspace.app */;
@@ -146,6 +152,9 @@
 			);
 			mainGroup = 1D3678143017F74600759E2C;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				1D367839301AFF7D00759E2C /* XCLocalSwiftPackageReference "StoryKit" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 1D36781E3017F74600759E2C /* Products */;
 			projectDirPath = "";
@@ -431,6 +440,20 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		1D367839301AFF7D00759E2C /* XCLocalSwiftPackageReference "StoryKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = StoryKit;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		1D36783A301AFF7D00759E2C /* StoryKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = StoryKit;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 1D3678153017F74600759E2C /* Project object */;
 }

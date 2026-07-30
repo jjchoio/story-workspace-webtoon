@@ -1,0 +1,81 @@
+
+EP2
+
+GOAL
+Raged Diver as machinery monster & the Realm
+
+Scroll Block 1: Hook + Tension
+
+Scene description: Steam hissing sound. Pipes running through the panels.
+1. (M) Andie: “Order up, you trash-can!”
+2. (S) Diver turns, enraged — helmet hissing and trembling. He rotates off the mouthpiece-like part.
+3. (S) ANDIE (internal): “…Pathetic.”
+   3.1 Andie makes a small tsk sound.
+4. (S) just text
+   4.1 ANDIE (internal): “He doesn’t even realize he’s lost control.”
+5. (S) Diver’s broken voice leaks from the open mouthpiece.
+   5.1 Diver: “You…”
+6. (S) just text
+   6.1 ANDIE (internal): “Agents will come erase him soon.”
+7. (M) Andie calmly grabs a cloth and polishes the portafilter.
+8. (S) zoom to portafilter
+   8.1 ANDIE (internal): “Mitch says we try before that happens.”
+9. (M) Diver now dashing toward Andie:
+   9.1 “You…”
+   9.2 “Took…”
+   9.3 “All…”
+   9.4 “Mine…”
+   9.5 “Give…”
+   9.6 “Back..!”
+10. (S) zoom to her eye, Andie glances at the diver
+    10.1 ANDIE (internal): “I don’t need to know why.”
+11. (S) Portafilter inserted to the espresso machine — CLANG
+12.  (S) just text
+    12.1 ANDIE (internal) : “Show me the recipe.”
+
+
+Scroll Block 2: Transition & the Realm
+13. Long Single Vertical Panel
+    13.1 (S) zoom-in, Andie closes her eyes.
+    13.2 (S) Andie’s hair starts to move as if there is breeze coming in,
+    13.3 (S) Many lines of steams begins to hiss from pipes of the Cage.
+    13.4 (S) abstract, Diver and his fragmented voices & metal sounds fades into the sound steams.
+14. PAUSE
+15. Zoom-out bird-eye-view, The Realm & the Giant Helmet (helmet symbolizes a prison)
+    15.1 (L) A giant rusty Diver helmet stands at one end, leaking steams from its visor — the same helmet as the Diver 
+         15.15.1.1 unique thing about this raged Diver
+                   15.15.115.15.1.1.1 one loose vent tube
+                   15.15.115.15.1.1.2 cracked visor
+         15.15.1.2 Andie stands in front of the giant helmet.
+    15.2 (M) The visor reflects Andie and the Raged Diver charging toward Andie - back of raged diver, basically same as SB10, but behind.
+    15.3 (S) Andie, while touching the visor with one hand, leans closer and looks into the visor.
+    15.4 (S) A faint human silhouette crouches deep inside. rough texture drawing
+    15.5 (S) Zoom to the figure’s chest — a small cracked glow, shaped like a Cup.
+16. PAUSE
+17. (M) Andie stands arms crossed firm eyes closed 
+    17.1 Zoom to Andie’s mouth, exhaling.
+    17.2 SFX: “후...”
+18. (S) Andie opens eyes.
+    18.1 ANDIE(Internal): “Found it.”
+
+Scroll Block 3: Diver in the Realm
+19. (S) Behind Diver view, Diver dashing toward Andie - same as SB5-2
+    19.1 Diver: “Body…Heavy…”
+20. (S) He stops mid-run. The mouthpiece drops.
+    20.1 Diver: “Can’t…move…”
+21. (S) He looks up, searching for Andie.
+    21.1 Small glow in his chest area.
+22. (L) Andie stands arms crossed firm eyes opened (signature pose)
+    22.1 Andie’s outfit changed to a simple ‘battle mode’, black apron, darker outfit <- this is Diver’s perception, they are still in the cafe, this is not another world or anything.
+23. (M) Diver in awe, scanning around the void steam-filled space that has nothing but simple espresso station, Andie, Diver, and faint shadows of pipes.
+    23.1 DIVER: “Where… “
+    23.2 DIVER: “am…”
+
+Scroll Block 4: Order Declared
+24. (S) Andie thinks briefly ignoring confused Diver
+25. (S) Andie points at the Diver confident, and declares.
+    25.1 ANDIE: “I will call this recipe…”
+26. (M) Zoom to Andie lower face, Andie makes a subtle smile.
+27. (M) Just Text
+    27.1 ANDIE: “From Lonely Shadows, Rises Warm Light.”
+
