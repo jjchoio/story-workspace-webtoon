@@ -15,8 +15,12 @@ cards — not a chat interface. AI proposes; the author decides.
 
 ## Current Scope
 
-Phase 1 (data spine): parser → canonical model → FileProjectStore → read
-mode. No LLM calls, no reviewers, no card UI in this phase.
+Phase 1 (data spine) is complete: parser → canonical model → FileProjectStore
+→ read mode with a sidebar outline. **Phase 2 — one reviewer through the pipe**
+is now active, starting with the card layer: card schema types + a
+schema-driven SwiftUI renderer built against a hand-authored sample card
+(no LLM yet). The live pipeline (retrieve → reason → emit) and a real reviewer
+follow the renderer. See PLANNING.md Phase 2.
 
 ## Structure
 
@@ -24,10 +28,13 @@ mode. No LLM calls, no reviewers, no card UI in this phase.
   Line, stable IDs; Line carries one level of flattened children; Episode
   carries optional GOAL header metadata), ProjectStore protocol +
   FileProjectStore. ALL logic lives here so it is testable via `swift test`.
-- App target — thin SwiftUI shell importing StoryKit. Keep logic out.
+- App target — thin SwiftUI shell importing StoryKit. Keep logic out. Views
+  are organized by feature: `App/` (RootView routing + toolbar), `Features/*`
+  (ReadMode, Project, …), `Components/` (reusable atoms), `ViewModels/`.
 - `fixtures/` — Cafe Alameda EP2 as `.txt` in both script conventions
-  (`EP2.txt` legacy "Scroll Block"/continuous numbering; `Episode 2
-  (cut).txt` updated "Cut"/per-cut numbering).
+  (`EP2-sample.txt` legacy "Scroll Block"/continuous numbering; `Episode 2
+  (cut)-cleaned.txt` updated "Cut"/per-cut numbering), plus `*-size-revised`
+  and `legacy-glued-size` samples that exercise the import-warning paths.
 
 ## Conventions
 
@@ -41,6 +48,10 @@ mode. No LLM calls, no reviewers, no card UI in this phase.
   opinionated on output (export emits Cut convention). Authored numbers
   are ignored for structure, validated for gaps (D11).
 - Addressing in code, tests, and UI: `EP / Cut / Line` (per-cut).
+- State & UI: Observation and modern patterns only — `@Observable` + `@State`
+  (+ `@Bindable` for two-way binding). Never `ObservableObject`/`@Published`/
+  `@StateObject`. Prefer current-era idioms (NavigationSplitView, async/await).
+  Deployment floor is macOS 14.
 
 ## Edit Discipline
 
