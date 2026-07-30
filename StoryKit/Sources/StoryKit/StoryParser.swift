@@ -37,10 +37,6 @@ public struct ParseResult: Equatable, Sendable {
     }
 }
 
-public enum StoryParserError: Error, Equatable {
-    case malformedInput(String)
-}
-
 public enum StoryParser {
 
     // MARK: Parse
