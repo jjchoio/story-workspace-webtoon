@@ -51,15 +51,13 @@ struct RootView: View {
             )
 
         case .loaded(let loaded):
-            VStack(spacing: 0) {
-                ProjectHeaderView(
-                    documentName: loaded.documentName,
-                    version: loaded.version,
-                    importedAt: loaded.importedAt
-                )
-                Divider()
-                ReadModeView(episode: loaded.episode, warnings: loaded.warnings)
-            }
+            EpisodeReaderView(
+                documentName: loaded.documentName,
+                version: loaded.version,
+                importedAt: loaded.importedAt,
+                episode: loaded.episode,
+                warnings: loaded.warnings
+            )
         }
     }
 
