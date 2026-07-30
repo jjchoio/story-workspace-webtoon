@@ -32,7 +32,7 @@ enum Fixtures {
 
     /// Legacy convention ("Scroll Block N", episode-continuous numbering),
     /// cleaned, authored with parenthesized (S)/(M)/(L) size codes.
-    static func legacyScript() throws -> String { try text("EP2-clened.txt") }
+    static func legacyScript() throws -> String { try text("EP2-sample.txt") }
 
     /// Updated convention ("Cut N", per-cut numbering), cleaned, authored with
     /// angle-bracket <S>/<M>/<L> size codes.
