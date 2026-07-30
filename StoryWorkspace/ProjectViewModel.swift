@@ -23,7 +23,6 @@ final class ProjectViewModel: ObservableObject {
         var documentID: DocumentID
         var documentName: String
         var version: Int
-        var historyCount: Int
         var importedAt: Date
         var storePath: String
         var warnings: [ParseWarning]
@@ -109,7 +108,6 @@ final class ProjectViewModel: ObservableObject {
             documentID: id,
             documentName: doc?.name ?? "Document",
             version: history.map(\.version).max() ?? 1,
-            historyCount: history.count,
             importedAt: doc?.createdAt ?? Date(),
             storePath: url.path,
             warnings: warnings
