@@ -13,10 +13,12 @@
 //
 
 import Foundation
+import Observation
 import StoryKit
 
 @MainActor
-final class ProjectViewModel: ObservableObject {
+@Observable
+final class ProjectViewModel {
 
     struct Loaded {
         var episode: Episode
@@ -35,7 +37,7 @@ final class ProjectViewModel: ObservableObject {
         case failed(String)
     }
 
-    @Published var state: State = .loading
+    var state: State = .loading
 
     private let projectName = "CafeAlameda"
 

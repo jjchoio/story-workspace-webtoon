@@ -11,7 +11,7 @@ import StoryKit
 import UniformTypeIdentifiers
 
 struct RootView: View {
-    @StateObject private var model = ProjectViewModel()
+    @State private var model = ProjectViewModel()
     @State private var importing = false
     @State private var showingSettings = false
 
