@@ -118,6 +118,44 @@ struct PersistenceTests {
         #expect(docs.first?.name == "Cafe Alameda EP2")
     }
 
+    // MARK: North Star (shared reviewer context)
+
+    @Test("A saved North Star reloads from a new store on the same directory")
+    func northStarReloadsAcrossStoreInstances() throws {
+        let dir = tempDir()
+        let northStar = NorthStar(
+            text: "Humanity survives through memory, craft, grief, care, and connection.",
+            sourceFilename: "Cafe_Alameda_North_Star_v1_4.txt",
+            // Whole-second date: the store encodes ISO-8601 (no sub-second
+            // precision), so a pinned second round-trips exactly.
+            importedAt: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+
+        let store = try FileProjectStore(rootDirectory: dir)
+        try store.saveNorthStar(northStar)
+
+        let reopened = try FileProjectStore(rootDirectory: dir)
+        #expect(try reopened.loadNorthStar() == northStar)
+    }
+
+    @Test("A project with no North Star loads nil")
+    func northStarAbsentIsNil() throws {
+        let store = try FileProjectStore(rootDirectory: tempDir())
+        #expect(try store.loadNorthStar() == nil)
+    }
+
+    @Test("Re-importing replaces the North Star in place (not versioned)")
+    func northStarReplaces() throws {
+        let dir = tempDir()
+        let store = try FileProjectStore(rootDirectory: dir)
+        try store.saveNorthStar(NorthStar(text: "v1", sourceFilename: "ns_v1.txt"))
+        try store.saveNorthStar(NorthStar(text: "v2 revised", sourceFilename: "ns_v2.txt"))
+
+        let loaded = try store.loadNorthStar()
+        #expect(loaded?.text == "v2 revised")
+        #expect(loaded?.sourceFilename == "ns_v2.txt")
+    }
+
     // MARK: Full-fidelity round-trip of a real parsed episode
 
     @Test("A parsed EP2 episode round-trips through the store unchanged")

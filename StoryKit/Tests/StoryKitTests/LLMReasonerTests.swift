@@ -89,6 +89,41 @@ struct LLMReasonerTests {
         #expect(request.messages.first?.text.contains("LINE UNDER REVIEW") == true)
     }
 
+    @Test("The North Star is injected into the system prompt as project context")
+    func northStarInSystemPrompt() async throws {
+        var context = try context()
+        context.northStar = "Coffee is an act of attention, craft, and recognition."
+
+        let fake = FakeLanguageModel(reply: wellFormedReply)
+        _ = try await LLMReasoner(model: fake).reason(context: context, config: .dialogue)
+
+        let system = try #require(fake.lastRequest?.system)
+        #expect(system.contains("PROJECT CONTEXT — North Star"))
+        #expect(system.contains("Coffee is an act of attention, craft, and recognition."))
+        // The North Star is shared project grounding — it belongs in the system
+        // prompt, not the per-line user turn.
+        #expect(fake.lastRequest?.messages.first?.text.contains("North Star") == false)
+    }
+
+    @Test("Without a North Star, no project-context block appears")
+    func noNorthStarByDefault() async throws {
+        let fake = FakeLanguageModel(reply: wellFormedReply)
+        _ = try await LLMReasoner(model: fake).reason(context: context(), config: .dialogue)
+        #expect(fake.lastRequest?.system?.contains("PROJECT CONTEXT") == false)
+    }
+
+    @Test("The pipeline threads a North Star argument into the reasoner")
+    func pipelinePassesNorthStar() async throws {
+        let fake = FakeLanguageModel(reply: wellFormedReply)
+        let pipeline = ReviewPipeline(retriever: NearbyLinesRetriever(), reasoner: LLMReasoner(model: fake))
+        _ = try await pipeline.run(
+            ReviewRequest(subject: Anchor(episode: "EP2", cut: 1, line: 1)),
+            config: .dialogue, episode: episodeEP2(),
+            northStar: "The café resists by recognizing each Diver as a person."
+        )
+        #expect(fake.lastRequest?.system?.contains("The café resists by recognizing each Diver as a person.") == true)
+    }
+
     @Test("A renewal request adds different-approach + honesty framing to the prompt")
     func renewalFraming() async throws {
         let episode = try episodeEP2()

@@ -77,4 +77,13 @@ public protocol ProjectStore {
 
     /// The full append-only history, in write order.
     func history() throws -> [HistoryEntry]
+
+    /// The project's North Star (shared reviewer context), or nil if none has
+    /// been imported.
+    func loadNorthStar() throws -> NorthStar?
+
+    /// Save (or replace) the project's North Star. Overwrites in place — unlike
+    /// documents, the North Star is not version-tracked; the author versions it
+    /// in their own tool and re-imports.
+    func saveNorthStar(_ northStar: NorthStar) throws
 }

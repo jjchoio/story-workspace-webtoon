@@ -89,6 +89,15 @@ public final class FileProjectStore: ProjectStore {
         return metas.sorted { $0.createdAt < $1.createdAt }
     }
 
+    public func loadNorthStar() throws -> NorthStar? {
+        guard fm.fileExists(atPath: northStarURL.path) else { return nil }
+        return try decoder.decode(NorthStar.self, from: Data(contentsOf: northStarURL))
+    }
+
+    public func saveNorthStar(_ northStar: NorthStar) throws {
+        try write(northStar, to: northStarURL)
+    }
+
     public func history() throws -> [HistoryEntry] {
         guard fm.fileExists(atPath: historyURL.path) else { return [] }
         let text = try String(contentsOf: historyURL, encoding: .utf8)
@@ -106,6 +115,7 @@ public final class FileProjectStore: ProjectStore {
     private var projectFileURL: URL { rootDirectory.appendingPathComponent("project.json") }
     private var documentsDirectory: URL { rootDirectory.appendingPathComponent("documents", isDirectory: true) }
     private var historyURL: URL { rootDirectory.appendingPathComponent("history.jsonl") }
+    private var northStarURL: URL { rootDirectory.appendingPathComponent("north-star.json") }
     private func documentDirectory(_ id: DocumentID) -> URL {
         documentsDirectory.appendingPathComponent(id.rawValue, isDirectory: true)
     }

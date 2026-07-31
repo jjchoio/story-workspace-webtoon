@@ -60,10 +60,14 @@ public struct ReviewContext: Equatable, Sendable {
     public var note: String?
     /// Alternatives already proposed for this line; non-empty on a renewal.
     public var priorAlternatives: [String]
+    /// Shared project context: the North Star text, when the project has one.
+    /// Populated by the pipeline, not the retriever — it is ambient project
+    /// grounding, not part of the per-line retrieval.
+    public var northStar: String?
 
     public init(
         target: Line, address: Anchor, before: [Line], after: [Line],
-        note: String?, priorAlternatives: [String] = []
+        note: String?, priorAlternatives: [String] = [], northStar: String? = nil
     ) {
         self.target = target
         self.address = address
@@ -71,6 +75,7 @@ public struct ReviewContext: Equatable, Sendable {
         self.after = after
         self.note = note
         self.priorAlternatives = priorAlternatives
+        self.northStar = northStar
     }
 }
 
@@ -149,12 +154,14 @@ public struct ReviewPipeline {
     }
 
     public func run(
-        _ request: ReviewRequest, config: ReviewerConfig, episode: Episode
+        _ request: ReviewRequest, config: ReviewerConfig, episode: Episode,
+        northStar: String? = nil
     ) async throws -> Card {
         var context = try retriever.retrieve(
             subject: request.subject, note: request.note, spec: config.retrieval, from: episode
         )
         context.priorAlternatives = request.priorAlternatives
+        context.northStar = northStar
         let verdict = try await reasoner.reason(context: context, config: config)
         return emit(verdict, request: request, config: config)
     }

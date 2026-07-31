@@ -24,7 +24,11 @@ public struct LLMReasoner: Reasoner {
     }
 
     public func reason(context: ReviewContext, config: ReviewerConfig) async throws -> ReviewerVerdict {
-        let system = config.rolePrompt + "\n\n" + Self.jsonContract
+        var system = config.rolePrompt
+        if let northStar = context.northStar, !northStar.isEmpty {
+            system += "\n\n" + Self.northStarBlock(northStar)
+        }
+        system += "\n\n" + Self.jsonContract
         let userText = Self.renderContext(context, reviewer: config.reviewer)
 
         Self.log.info(
@@ -42,6 +46,21 @@ public struct LLMReasoner: Reasoner {
     }
 
     // MARK: Prompt building
+
+    /// Wrap the project's North Star as durable project grounding in the system
+    /// prompt. It sits between the reviewer's identity and the output contract:
+    /// stable across calls (conceptually separate from the episode in the user
+    /// turn), shared by every reviewer, weighed by each on its own terms.
+    static func northStarBlock(_ text: String) -> String {
+        """
+        PROJECT CONTEXT — North Star
+        The story's guiding essence: its arc, characters, and theme. Weigh the \
+        line under review against it — judge whether the dialogue serves these \
+        truths — but review only the line you are asked about.
+
+        \(text)
+        """
+    }
 
     /// The output contract appended to every reviewer's role prompt. It pins the
     /// card vocabulary (D9) so the reply maps straight onto our schema.
