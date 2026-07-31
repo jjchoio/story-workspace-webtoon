@@ -14,6 +14,7 @@ struct RootView: View {
     @State private var model = ProjectViewModel()
     @State private var importing = false
     @State private var showingSettings = false
+    @State private var showingCard = false // TEMP (Phase 2 step 5 demo)
 
     var body: some View {
         content
@@ -30,6 +31,21 @@ struct RootView: View {
                 }
             }
             .toolbar { toolbar }
+            .sheet(isPresented: $showingCard) { cardSheet }
+    }
+
+    // TEMP (Phase 2 step 5 demo): preview the sample card before the review flow
+    // exists. Remove with SampleCard + bundled JSON when step 6 lands.
+    private var cardSheet: some View {
+        VStack(spacing: 16) {
+            if let card = SampleCard.load() {
+                CardView(card: card)
+            } else {
+                Text("sample-card.json is missing from the app bundle.")
+            }
+            Button("Close") { showingCard = false }
+        }
+        .padding(24)
     }
 
     // MARK: State routing
@@ -66,6 +82,12 @@ struct RootView: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         if case .loaded(let loaded) = model.state {
+            // TEMP (Phase 2 step 5 demo): preview the sample card. Remove at step 6.
+            ToolbarItem(placement: .primaryAction) {
+                Button { showingCard = true } label: {
+                    Label("Sample Card", systemImage: "rectangle.on.rectangle.angled")
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button { showingSettings.toggle() } label: {
                     Label("Settings", systemImage: "gearshape")

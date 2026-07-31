@@ -18,7 +18,7 @@ struct CardSchemaTests {
         let card = try decodeSample()
         #expect(card.reviewer.name == "Dialogue reviewer")
         #expect(card.reviewer.focus == ["Character voice", "tone", "grammar"])
-        #expect(card.anchor == Anchor(episode: "EP1", cut: 1, line: 1))
+        #expect(card.anchor == Anchor(episode: "EP2", cut: 1, line: 1))
         #expect(card.version == 2)
         #expect(card.status == .challenged)
     }
