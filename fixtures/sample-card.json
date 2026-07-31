@@ -1,0 +1,41 @@
+{
+  "id" : "card-dialogue-ep1-c1-l1-v2",
+  "reviewer" : {
+    "name" : "Dialogue reviewer",
+    "focus" : ["Character voice", "tone", "grammar"]
+  },
+  "anchor" : { "episode" : "EP1", "cut" : 1, "line" : 1 },
+  "version" : 2,
+  "status" : "challenged",
+  "blocks" : [
+    {
+      "type" : "quote",
+      "speaker" : "Andie",
+      "content" : "Order up, you trash-can!"
+    },
+    {
+      "type" : "text",
+      "label" : "Responding to your note — \"her bluntness is intentional\"",
+      "content" : "Understood that this is Andie's voice. I still flag it here: readers haven't seen her warmth yet, so the first line reads as hostile rather than teasing. A softer jab keeps the edge while earning her coldness later."
+    }
+  ],
+  "options" : [
+    {
+      "id" : "opt-soften",
+      "kind" : "alternative",
+      "label" : "Soften",
+      "detail" : "Order up… try not to break this one."
+    },
+    {
+      "id" : "opt-keep",
+      "kind" : "keep",
+      "label" : "Keep",
+      "detail" : "Order up, you trash-can!"
+    },
+    {
+      "id" : "opt-write",
+      "kind" : "authorWritten",
+      "label" : "Write your own…"
+    }
+  ]
+}
