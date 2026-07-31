@@ -97,3 +97,15 @@ between human and AI instead of a traditional chat interface.
 - Cards persist forever, grouped by review session — the review history *is*
   the project history, replacing chat history as the product's memory surface.
 - Read/write mode shows full episode text side-by-side with cards.
+- The history isn't a scroll — it's a deck. Authors flip through
+  reviewed cards, each a complete thought with its verdict, version
+  chain, and provenance attached. Cards are skimmable at a glance:
+  status (accepted / dismissed / stale / overruled) is visible without
+  opening.
+- Review Mode: an optional guided walk through a review's suggestions,
+  one at a time in document order. Accepting applies the change
+  immediately and highlights it in the script; the walk continues
+  against the updated text. Turning the mode off returns remaining
+  suggestions to the card view — nothing is discarded.
+- Every reviewer has a thoroughness setting (Light / Standard / Deep)
+  in Preferences — the author tunes their staff once, not every cycle.

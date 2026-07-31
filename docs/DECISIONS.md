@@ -283,3 +283,123 @@ schema churn); SQLite directly (premature).
 **Tradeoffs.** No query engine — acceptable while reads are
 whole-document loads; revisit if tier-2 retrieval ever needs real queries.
 Migration insurance is the protocol boundary, not an anticipatory schema.
+
+## D15. Canonical model: one-level nesting + episode goal
+
+**Decision.** `Line` gains optional children, exactly one level deep; the
+parser flattens deeper authored nesting (e.g. 15.1.1.1 becomes a child of
+15) rather than erroring. `Episode` gains optional metadata parsed from
+the header block, including `goal`. Addressing extends naturally:
+`EP / Cut / Line / Child` (e.g. EP2 / Cut 3 / Line 15.1).
+
+**Nested staleness semantics.** An edit to a child stales suggestions
+anchored to that child AND to its parent (the parent's moment changed);
+an edit to a parent stales the parent's suggestions only, not every
+child's.
+
+**Reasoning.** The scripts contain real sub-beats within a moment —
+structure reviewers can use (beat density is pacing signal). Depth beyond
+one level is treated as formatting habit, consistent with D11's
+numbers-are-hints philosophy. The episode goal is a second retrieval
+source for the North Star reviewer (global north star + per-episode
+goal), promised in PRODUCT.md but previously homeless in the model.
+
+**Alternatives.** Flat model discarding nesting (loses beat structure);
+unlimited depth (complexity the anchor/staleness machinery inherits
+forever).
+
+**Tradeoffs.** Anchor bookkeeping must handle the parent/child overlap
+case; accepted with the asymmetric rule above.
+
+---
+
+## D16. Cut description + size codes as structured metadata
+
+**Decision.** `Cut` regains `description: String?` (the scene-description
+line; general-purpose home for unnumbered cut-top prose in v1). `Line`
+gains `size: SizeCode?` (S/M/L enum) parsed from explicit delimited codes,
+stripped from text. Accepted input forms: `(S) (M) (L)` and `<S> <M> <L>`,
+case-exact, immediately after the line number. Canonical export form:
+parentheses. Bare glued codes (legacy corrupted exports like "Szoom",
+"LAndie") are NEVER parsed as size codes — they produce an import warning
+("possible lost size marker") and text stays verbatim.
+
+**Reasoning.** Scene description was always in the technical design; size
+codes are visual weight encoded in the script — the Flow reviewer's
+primary v1 signal beyond line density (a large cut is a held beat; a run
+of smalls is rapid rhythm). The original authored syntax (~S~) was
+destroyed by the Ulysses plain-text export, which surfaced the governing
+principle: **when the format is ours to define, fix the format rather
+than teach the parser to guess.** Tolerance is for sloppiness, not for
+lost information. A lexical heuristic ("is the remainder a plausible
+token?") was considered and rejected — it fails silently (e.g. a line
+starting "Since" after a size mark) and erodes trust in the parser.
+
+**Alternatives.** Lexical disambiguation of glued codes (rejected as
+above); keeping codes in text verbatim (loses queryable pacing signal).
+
+**Tradeoffs.** Authors must use the delimited syntax; legacy scripts get
+warnings, not silent repair. The export pipeline is now explicitly part
+of the input format's spec (see FORMAT.md).
+
+---
+
+## D17. Review Mode: upfront holistic pass, guided reveal
+
+**Decision.** Review Mode is a presentation lens over the existing card
+model, not a new generation architecture. The reviewer reviews its full
+scope in ONE call, producing its complete suggestion list. Review Mode
+then walks suggestions one at a time in document order. Accepting applies
+the patch immediately and highlights the change in read mode.
+Freshness comes from existing machinery: suggestions whose anchors were
+not touched by earlier accepts present instantly (no LLM call); when the
+walk reaches a suggestion staled by an earlier accept, the app
+auto-triggers a scoped renewal (D12) against current text. Toggling the
+mode off returns remaining suggestions to the normal card view — the mode
+is a lens, not a lifecycle. A live indicator animates during the walk.
+
+**Reasoning.** "One thing at a time" is a core interaction value, but
+per-finding generation was rejected on three grounds: (1) token cost
+inverts — each incremental call re-sends the full context plus an
+accumulating decision log, so a completed walk costs a multiple of the
+single-pass approach; (2) streaming reduces perceived latency but not
+per-step thinking time — a pause after every accept survives streaming;
+(3) a reviewer generating one finding at a time never sees the episode
+whole, structurally preventing cross-line observations — the thing that
+distinguishes a specialist from a linter.
+
+**Alternatives.** Incremental generation per accept (rejected as above);
+one-card-per-finding data model (rejected earlier in the same discussion —
+it breaks D7's per-suggestion staleness, dilutes reviewer identity, and
+turns the deck into a notification pile).
+
+**Tradeoffs.** Non-overlapping edits are assumed independent; a
+tone-level change can invalidate a distant suggestion without touching
+its anchor. Escape hatch: explicit per-reviewer "re-look."
+
+---
+
+## D18. Per-reviewer thoroughness setting in Preferences
+
+**Decision.** Each reviewer has a persistent thoroughness setting —
+Light / Standard (default) / Deep — stored as reviewer config, changeable
+anytime in Preferences, injected into the prompt as the flagging
+threshold. Light: only what meaningfully hurts the story; silence is
+endorsement. Standard: important findings plus clear improvements, skip
+nitpicks. Deep: everything worth knowing, still ranked by severity.
+Severity remains in the card schema at every stop, so Deep ranks rather
+than floods.
+
+**Reasoning.** Flagging volume is the difference between a helpful
+reviewer and an exhausting one, and the right volume is per-author
+preference — "tuning your staff," not answering a survey every cycle.
+Three stops because a continuous slider promises precision a prompt
+cannot honor.
+
+**Alternatives.** Fixed personality-defined threshold (no user control);
+per-cycle dial (repetitive friction, wrong mental model); continuous
+slider (false precision).
+
+**Tradeoffs.** A Light review finding little is good news only if the
+user knows it was Light — cards should eventually display the
+thoroughness that produced them (cheap metadata, real trust dividend).
