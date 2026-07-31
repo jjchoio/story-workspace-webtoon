@@ -15,7 +15,6 @@ struct RootView: View {
     @Environment(ProjectViewModel.self) private var model
     @Environment(\.openWindow) private var openWindow
     @State private var importing = false
-    @State private var importingNorthStar = false
     @State private var showingSettings = false
 
     var body: some View {
@@ -29,16 +28,7 @@ struct RootView: View {
                 allowsMultipleSelection: false
             ) { result in
                 if case .success(let urls) = result, let url = urls.first {
-                    model.importEpisode(from: url)
-                }
-            }
-            .fileImporter(
-                isPresented: $importingNorthStar,
-                allowedContentTypes: [.plainText, .text],
-                allowsMultipleSelection: false
-            ) { result in
-                if case .success(let urls) = result, let url = urls.first {
-                    model.importNorthStar(from: url)
+                    model.addEpisode(from: url)
                 }
             }
             .toolbar { toolbar }
@@ -63,13 +53,14 @@ struct RootView: View {
             )
 
         case .loaded(let loaded):
-            EpisodeReaderView(
-                documentName: loaded.documentName,
-                version: loaded.version,
-                importedAt: loaded.importedAt,
-                episode: loaded.episode,
-                warnings: loaded.warnings,
-                changedLineIDs: model.changedLineIDs
+            LibraryView(
+                loaded: loaded,
+                northStar: model.northStar,
+                changedLineIDs: model.changedLineIDs,
+                onSelectEpisode: { model.selectEpisode($0) },
+                onAddEpisode: { model.addEpisode(from: $0) },
+                onUpdateEpisode: { model.updateEpisode($0, from: $1) },
+                onImportNorthStar: { model.importNorthStar(from: $0) }
             )
         }
     }
@@ -93,17 +84,6 @@ struct RootView: View {
                 .popover(isPresented: $showingSettings, arrowEdge: .bottom) {
                     SettingsPopover(
                         storePath: loaded.storePath,
-                        northStarStatus: model.northStar.map {
-                            "Loaded from \($0.sourceFilename ?? "a file")"
-                        },
-                        onImport: {
-                            showingSettings = false
-                            importing = true
-                        },
-                        onImportNorthStar: {
-                            showingSettings = false
-                            importingNorthStar = true
-                        },
                         onReset: {
                             showingSettings = false
                             model.resetStore()

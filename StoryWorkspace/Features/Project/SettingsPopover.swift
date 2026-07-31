@@ -4,6 +4,7 @@
 //
 //  Settings popover from the toolbar gear: store location + reveal, and a
 //  confirm-gated reset (kept out of the toolbar so it can't be hit by accident).
+//  Documents (episodes, North Star) are managed in the library column, not here.
 //
 
 import SwiftUI
@@ -11,10 +12,6 @@ import AppKit
 
 struct SettingsPopover: View {
     let storePath: String
-    /// A short description of the loaded North Star ("Loaded from …"), or nil.
-    let northStarStatus: String?
-    let onImport: () -> Void
-    let onImportNorthStar: () -> Void
     let onReset: () -> Void
 
     @State private var confirmingReset = false
@@ -22,33 +19,6 @@ struct SettingsPopover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Settings").font(.headline)
-
-            Button(action: onImport) {
-                Label("Import Update…", systemImage: "square.and.arrow.down")
-            }
-            .controlSize(.small)
-
-            Divider()
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("North Star")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Text(northStarStatus ?? "None yet — reviewers run without it.")
-                    .font(.caption2)
-                    .foregroundStyle(northStarStatus == nil ? AnyShapeStyle(.secondary) : AnyShapeStyle(.primary))
-                    .lineLimit(2)
-                    .truncationMode(.middle)
-                Button(action: onImportNorthStar) {
-                    Label(
-                        northStarStatus == nil ? "Import North Star…" : "Replace North Star…",
-                        systemImage: "star"
-                    )
-                }
-                .controlSize(.small)
-            }
-
-            Divider()
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Store location")

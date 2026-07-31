@@ -21,8 +21,11 @@ import StoryKit
 final class ProjectViewModel {
 
     struct Loaded {
+        /// Every episode in the project, in import-date order — the library.
+        var documents: [StoredDocument]
+        /// Which episode is currently open in the reader.
+        var selectedDocumentID: DocumentID
         var episode: Episode
-        var documentID: DocumentID
         var documentName: String
         var version: Int
         var importedAt: Date
@@ -66,30 +69,51 @@ final class ProjectViewModel {
         }
     }
 
-    /// Import a .txt episode. First import creates the document (v1); later
-    /// imports append a new version to it.
-    func importEpisode(from fileURL: URL) {
+    /// Add a .txt as a new, independent episode document (v1) and open it.
+    /// Distinct episodes are always separate documents; a revised draft of an
+    /// existing episode is an Update (see `updateEpisode`), not an add.
+    func addEpisode(from fileURL: URL) {
         do {
             let text = try readText(fileURL)
             let result = try StoryParser.parse(text)
-
             let url = try projectURL()
             let store = try FileProjectStore(rootDirectory: url)
-            let id: DocumentID
-            if let existing = try store.documents().first {
-                id = existing.id
-                try store.addVersion(
-                    to: id, episode: result.episode,
-                    provenance: Provenance(action: "reimport", note: fileURL.lastPathComponent)
-                )
-            } else {
-                let name = fileURL.deletingPathExtension().lastPathComponent
-                id = try store.createDocument(
-                    name: name, episode: result.episode,
-                    provenance: Provenance(action: "import", note: fileURL.lastPathComponent)
-                )
-            }
+            let name = fileURL.deletingPathExtension().lastPathComponent
+            let id = try store.createDocument(
+                name: name, episode: result.episode,
+                provenance: Provenance(action: "import", note: fileURL.lastPathComponent)
+            )
             state = try loadedState(store: store, id: id, url: url, warnings: result.warnings)
+        } catch {
+            state = .failed(String(describing: error))
+        }
+    }
+
+    /// Update a specific episode with a revised draft: append a new immutable
+    /// version to that document (D14 version control) and open it.
+    func updateEpisode(_ id: DocumentID, from fileURL: URL) {
+        do {
+            let text = try readText(fileURL)
+            let result = try StoryParser.parse(text)
+            let url = try projectURL()
+            let store = try FileProjectStore(rootDirectory: url)
+            try store.addVersion(
+                to: id, episode: result.episode,
+                provenance: Provenance(action: "reimport", note: fileURL.lastPathComponent)
+            )
+            state = try loadedState(store: store, id: id, url: url, warnings: result.warnings)
+        } catch {
+            state = .failed(String(describing: error))
+        }
+    }
+
+    /// Open a different episode from the library.
+    func selectEpisode(_ id: DocumentID) {
+        guard case .loaded(let loaded) = state, loaded.selectedDocumentID != id else { return }
+        do {
+            let url = try projectURL()
+            let store = try FileProjectStore(rootDirectory: url)
+            state = try loadedState(store: store, id: id, url: url, warnings: [])
         } catch {
             state = .failed(String(describing: error))
         }
@@ -136,7 +160,7 @@ final class ProjectViewModel {
             let store = try FileProjectStore(rootDirectory: try projectURL())
             let note = "\(reviewer) · \(option.label) @ \(anchor.episode)/Cut\(anchor.cut)/Line\(anchor.line)"
             let newVersion = try store.addVersion(
-                to: loaded.documentID, episode: result.episode,
+                to: loaded.selectedDocumentID, episode: result.episode,
                 provenance: Provenance(action: "accept", note: note)
             )
             loaded.version = newVersion
@@ -167,11 +191,13 @@ final class ProjectViewModel {
         guard let episode = try store.latestEpisode(of: id) else {
             return .failed("No stored version found for this document.")
         }
+        let documents = try store.documents()
         let history = try store.history().filter { $0.documentID == id }
-        let doc = try store.documents().first { $0.id == id }
+        let doc = documents.first { $0.id == id }
         return .loaded(Loaded(
+            documents: documents,
+            selectedDocumentID: id,
             episode: episode,
-            documentID: id,
             documentName: doc?.name ?? "Document",
             version: history.map(\.version).max() ?? 1,
             importedAt: doc?.createdAt ?? Date(),
