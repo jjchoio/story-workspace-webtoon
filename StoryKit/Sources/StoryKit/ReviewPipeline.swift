@@ -80,6 +80,9 @@ public struct ReviewerVerdict: Equatable, Sendable {
 public enum ReviewError: Error, Equatable {
     /// The subject anchor points outside the episode's cuts/lines.
     case subjectOutOfRange(Anchor)
+    /// The reasoner's reply could not be parsed into a verdict; the associated
+    /// value is the raw reply, retained for debugging.
+    case malformedVerdict(String)
 }
 
 // MARK: Stages

@@ -14,7 +14,7 @@ struct RootView: View {
     @State private var model = ProjectViewModel()
     @State private var importing = false
     @State private var showingSettings = false
-    @State private var showingCard = false // TEMP (Phase 2 step 4 demo)
+    @State private var showingCard = false // TEMP (Phase 2 step 6 demo)
 
     var body: some View {
         content
@@ -34,14 +34,14 @@ struct RootView: View {
             .sheet(isPresented: $showingCard) { cardSheet }
     }
 
-    // TEMP (Phase 2 step 4 demo): run the stub review pipeline on the loaded
-    // episode and show the produced card. Remove this hook when step 6 wires the
-    // real reviewer + review flow.
+    // TEMP (Phase 2 step 6 demo): run a real Claude review on the loaded episode
+    // and show the produced card. Remove this hook when the real review flow
+    // (selection UI + session) lands.
     @ViewBuilder
     private var cardSheet: some View {
         VStack(spacing: 16) {
             if case .loaded(let loaded) = model.state {
-                StubCardPreview(episode: loaded.episode)
+                ReviewCardPreview(episode: loaded.episode)
             }
             Button("Close") { showingCard = false }
         }
@@ -82,10 +82,10 @@ struct RootView: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         if case .loaded(let loaded) = model.state {
-            // TEMP (Phase 2 step 4 demo): run the stub review pipeline. Remove at step 6.
+            // TEMP (Phase 2 step 6 demo): run a real Claude review. Remove with the review flow.
             ToolbarItem(placement: .primaryAction) {
                 Button { showingCard = true } label: {
-                    Label("Stub Review", systemImage: "sparkles")
+                    Label("Review Line", systemImage: "sparkles")
                 }
             }
             ToolbarItem(placement: .primaryAction) {
