@@ -11,10 +11,11 @@ import StoryKit
 import UniformTypeIdentifiers
 
 struct RootView: View {
-    @State private var model = ProjectViewModel()
+    // Shared across the reader and the floating review-card window (owned by the App).
+    @Environment(ProjectViewModel.self) private var model
+    @Environment(\.openWindow) private var openWindow
     @State private var importing = false
     @State private var showingSettings = false
-    @State private var showingCard = false // TEMP (Phase 2 step 6 demo)
 
     var body: some View {
         content
@@ -31,21 +32,6 @@ struct RootView: View {
                 }
             }
             .toolbar { toolbar }
-            .sheet(isPresented: $showingCard) { cardSheet }
-    }
-
-    // TEMP (Phase 2 step 6 demo): run a real Claude review on the loaded episode
-    // and show the produced card. Remove this hook when the real review flow
-    // (selection UI + session) lands.
-    @ViewBuilder
-    private var cardSheet: some View {
-        VStack(spacing: 16) {
-            if case .loaded(let loaded) = model.state {
-                ReviewCardPreview(episode: loaded.episode)
-            }
-            Button("Close") { showingCard = false }
-        }
-        .padding(24)
     }
 
     // MARK: State routing
@@ -82,9 +68,10 @@ struct RootView: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         if case .loaded(let loaded) = model.state {
-            // TEMP (Phase 2 step 6 demo): run a real Claude review. Remove with the review flow.
+            // TEMP (Phase 2 step 6 demo): open the floating review-card window.
+            // Remove with the real review flow.
             ToolbarItem(placement: .primaryAction) {
-                Button { showingCard = true } label: {
+                Button { openWindow(id: "review-card") } label: {
                     Label("Review Line", systemImage: "sparkles")
                 }
             }
