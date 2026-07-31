@@ -81,6 +81,13 @@ public struct LLMReasoner: Reasoner {
             lines.append("Following lines:")
             lines.append(contentsOf: context.after.map { "  \(Self.render($0))" })
         }
+        if !context.priorAlternatives.isEmpty {
+            lines.append("")
+            lines.append("You already suggested: \(context.priorAlternatives.map { "“\($0)”" }.joined(separator: "; ")).")
+            lines.append(
+                "The author wants a genuinely different approach — same intention, a different path, not a reword of the above. If you have nothing better, say so honestly and endorse keeping the line as written."
+            )
+        }
         return lines.joined(separator: "\n")
     }
 

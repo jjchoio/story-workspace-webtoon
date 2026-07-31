@@ -12,10 +12,19 @@ import StoryKit
 struct LineRowView: View {
     let number: Int
     let line: Line
+    /// True when an accepted review edited this line this session — subtly
+    /// highlighted so the author sees what changed.
+    var isChanged: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             row(number: "\(number)", line: line, isChild: false)
+                .padding(.horizontal, isChanged ? 8 : 0)
+                .padding(.vertical, isChanged ? 4 : 0)
+                .background(
+                    RoundedRectangle(cornerRadius: 6)
+                        .fill(Color.accentColor.opacity(isChanged ? 0.14 : 0))
+                )
             if !line.children.isEmpty {
                 VStack(alignment: .leading, spacing: 3) {
                     ForEach(Array(line.children.enumerated()), id: \.offset) { entry in

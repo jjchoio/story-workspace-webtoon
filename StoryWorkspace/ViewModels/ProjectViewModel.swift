@@ -39,6 +39,11 @@ final class ProjectViewModel {
 
     var state: State = .loading
 
+    /// Lines edited by an accepted review this session — the reader highlights
+    /// them. Reset on reload; the highlight is "what changed this session," not a
+    /// persisted attribute.
+    private(set) var changedLineIDs: Set<LineID> = []
+
     private let projectName = "CafeAlameda"
 
     /// On launch: load the existing document if there is one, else stay empty.
@@ -85,12 +90,49 @@ final class ProjectViewModel {
         }
     }
 
+    /// Apply an accepted review option to the document (D3: only explicit author
+    /// action mutates). `.alternative` uses the option's detail, `.authorWritten`
+    /// the author's typed line; `.keep` is an endorsement with no edit. A text
+    /// change patches the in-memory episode, highlights the line, and persists a
+    /// new immutable version with provenance (D4/D14).
+    func accept(option: CardOption, anchor: Anchor, reviewer: String, authoredText: String? = nil) {
+        guard case .loaded(var loaded) = state else { return }
+
+        let newText: String?
+        switch option.kind {
+        case .alternative: newText = option.detail
+        case .authorWritten: newText = authoredText
+        case .keep: newText = nil // endorsement — no edit, no new version
+        }
+        guard let newText, !newText.isEmpty,
+              let result = loaded.episode.applyingText(newText, at: anchor)
+        else { return }
+
+        loaded.episode = result.episode
+        changedLineIDs.insert(result.changed)
+
+        do {
+            let store = try FileProjectStore(rootDirectory: try projectURL())
+            let note = "\(reviewer) · \(option.label) @ \(anchor.episode)/Cut\(anchor.cut)/Line\(anchor.line)"
+            let newVersion = try store.addVersion(
+                to: loaded.documentID, episode: result.episode,
+                provenance: Provenance(action: "accept", note: note)
+            )
+            loaded.version = newVersion
+        } catch {
+            // Keep the in-memory edit + highlight even if the write fails; the
+            // version counter just won't advance.
+        }
+        state = .loaded(loaded)
+    }
+
     /// Delete the on-disk project so the app returns to the empty first-launch
     /// state.
     func resetStore() {
         if let url = try? projectURL() {
             try? FileManager.default.removeItem(at: url)
         }
+        changedLineIDs = []
         state = .loading
         load()
     }

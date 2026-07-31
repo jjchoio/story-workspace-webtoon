@@ -58,7 +58,8 @@ struct RootView: View {
                 version: loaded.version,
                 importedAt: loaded.importedAt,
                 episode: loaded.episode,
-                warnings: loaded.warnings
+                warnings: loaded.warnings,
+                changedLineIDs: model.changedLineIDs
             )
         }
     }

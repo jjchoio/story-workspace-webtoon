@@ -13,13 +13,39 @@ import StoryKit
 
 struct CardView: View {
     let card: Card
+    /// Called when the author accepts an option. String is the author's typed
+    /// line for an author-written option, nil otherwise.
+    var onAccept: (CardOption, String?) -> Void = { _, _ in }
+    var onRenew: () -> Void = {}
+    var onDismiss: () -> Void = {}
 
     @State private var selectedOptionID: String?
     @State private var status: CardStatus
+    @State private var authoredText: String = ""
 
-    init(card: Card) {
+    init(
+        card: Card,
+        onAccept: @escaping (CardOption, String?) -> Void = { _, _ in },
+        onRenew: @escaping () -> Void = {},
+        onDismiss: @escaping () -> Void = {}
+    ) {
         self.card = card
+        self.onAccept = onAccept
+        self.onRenew = onRenew
+        self.onDismiss = onDismiss
         _status = State(initialValue: card.status)
+    }
+
+    private var selectedOption: CardOption? {
+        card.options.first { $0.id == selectedOptionID }
+    }
+
+    private var canAccept: Bool {
+        guard let selectedOption else { return false }
+        if selectedOption.kind == .authorWritten {
+            return !authoredText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+        return true
     }
 
     var body: some View {
@@ -29,9 +55,15 @@ struct CardView: View {
             content
             Divider()
             CardFooterView(
-                onChallenge: { status = .challenged },
-                onRenew: { status = .renewed },
-                onDismiss: { status = .dismissed }
+                hasSelection: selectedOptionID != nil,
+                canAccept: canAccept,
+                onAccept: {
+                    guard let option = selectedOption else { return }
+                    onAccept(option, option.kind == .authorWritten ? authoredText : nil)
+                    status = .accepted
+                },
+                onRenew: onRenew,
+                onDismiss: { status = .dismissed; onDismiss() }
             )
         }
         .frame(width: 460)
@@ -80,6 +112,12 @@ struct CardView: View {
                 }
             }
             .padding(.top, 2)
+
+            if selectedOption?.kind == .authorWritten {
+                TextField("Write your line…", text: $authoredText, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .lineLimit(1...3)
+            }
         }
         .padding(16)
     }

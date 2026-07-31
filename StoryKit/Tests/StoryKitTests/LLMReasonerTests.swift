@@ -89,6 +89,33 @@ struct LLMReasonerTests {
         #expect(request.messages.first?.text.contains("LINE UNDER REVIEW") == true)
     }
 
+    @Test("A renewal request adds different-approach + honesty framing to the prompt")
+    func renewalFraming() async throws {
+        let episode = try episodeEP2()
+        let renewalContext = try NearbyLinesRetriever().retrieve(
+            subject: Anchor(episode: "EP2", cut: 1, line: 1),
+            note: nil, spec: RetrievalSpec(neighbors: 2), from: episode
+        )
+        var context = renewalContext
+        context.priorAlternatives = ["Order up… try not to break this one."]
+
+        let fake = FakeLanguageModel(reply: wellFormedReply)
+        _ = try await LLMReasoner(model: fake).reason(context: context, config: .dialogue)
+
+        let userText = try #require(fake.lastRequest?.messages.first?.text)
+        #expect(userText.contains("You already suggested"))
+        #expect(userText.contains("genuinely different approach"))
+        #expect(userText.contains("honestly"))
+        #expect(userText.contains("try not to break this one")) // the prior alternative
+    }
+
+    @Test("Without a renewal, no different-approach framing appears")
+    func noRenewalFramingByDefault() async throws {
+        let fake = FakeLanguageModel(reply: wellFormedReply)
+        _ = try await LLMReasoner(model: fake).reason(context: context(), config: .dialogue)
+        #expect(fake.lastRequest?.messages.first?.text.contains("You already suggested") == false)
+    }
+
     @Test("Pipeline with the LLM reasoner emits an open v1 card")
     func runsThroughPipeline() async throws {
         let pipeline = ReviewPipeline(

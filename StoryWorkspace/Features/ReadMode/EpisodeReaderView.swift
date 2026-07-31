@@ -17,6 +17,7 @@ struct EpisodeReaderView: View {
     let importedAt: Date
     let episode: Episode
     let warnings: [ParseWarning]
+    let changedLineIDs: Set<LineID>
 
     @State private var selection: ReaderTarget? = .goal
 
@@ -32,7 +33,10 @@ struct EpisodeReaderView: View {
                     importedAt: importedAt
                 )
                 Divider()
-                ReadModeView(episode: episode, warnings: warnings, selection: $selection)
+                ReadModeView(
+                    episode: episode, warnings: warnings,
+                    changedLineIDs: changedLineIDs, selection: $selection
+                )
             }
         }
     }

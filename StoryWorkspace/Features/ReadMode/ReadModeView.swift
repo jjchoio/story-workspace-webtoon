@@ -13,6 +13,7 @@ import StoryKit
 struct ReadModeView: View {
     let episode: Episode
     let warnings: [ParseWarning]
+    let changedLineIDs: Set<LineID>
     @Binding var selection: ReaderTarget?
 
     /// One scroll-sync update we triggered ourselves, so the jump handler
@@ -50,7 +51,7 @@ struct ReadModeView: View {
 
                         ForEach(Array(episode.cuts.enumerated()), id: \.offset) { entry in
                             Section {
-                                CutSectionView(cut: entry.element)
+                                CutSectionView(cut: entry.element, changedLineIDs: changedLineIDs)
                             } header: {
                                 CutHeaderView(number: entry.offset + 1, title: entry.element.title)
                                     .background(topReporter(index: entry.offset))

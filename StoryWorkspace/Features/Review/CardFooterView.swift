@@ -2,31 +2,41 @@
 //  CardFooterView.swift
 //  StoryWorkspace
 //
-//  Card lifecycle actions (D12): Challenge / Renew / Dismiss. In this step they
-//  toggle local status only; the real lifecycle lands with the write loop.
+//  Card actions. Renew asks the reviewer for a different approach (D12). The
+//  primary action is contextual: Accept once the author has picked an option,
+//  otherwise Dismiss. (Challenge returns with the full D12 loop.)
 //
 
 import SwiftUI
 
 struct CardFooterView: View {
-    let onChallenge: () -> Void
+    let hasSelection: Bool
+    let canAccept: Bool
+    let onAccept: () -> Void
     let onRenew: () -> Void
     let onDismiss: () -> Void
 
     var body: some View {
         HStack(spacing: 16) {
-            Button(action: onChallenge) {
-                Label("Challenge", systemImage: "exclamationmark.bubble")
-            }
             Button(action: onRenew) {
                 Label("Renew", systemImage: "arrow.triangle.2.circlepath")
             }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+
             Spacer()
-            Button("Dismiss", action: onDismiss)
+
+            if hasSelection {
+                Button("Accept", action: onAccept)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(!canAccept)
+            } else {
+                Button("Dismiss", action: onDismiss)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+            }
         }
-        .buttonStyle(.plain)
         .font(.callout)
-        .foregroundStyle(.secondary)
         .padding(16)
     }
 }

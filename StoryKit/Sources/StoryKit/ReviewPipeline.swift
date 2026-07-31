@@ -13,10 +13,14 @@ import Foundation
 public struct ReviewRequest: Equatable, Sendable {
     public var subject: Anchor
     public var note: String?
+    /// Alternatives the reviewer already proposed for this line. Non-empty on a
+    /// renewal (D12): the reviewer must take a different path or say so honestly.
+    public var priorAlternatives: [String]
 
-    public init(subject: Anchor, note: String? = nil) {
+    public init(subject: Anchor, note: String? = nil, priorAlternatives: [String] = []) {
         self.subject = subject
         self.note = note
+        self.priorAlternatives = priorAlternatives
     }
 }
 
@@ -54,13 +58,19 @@ public struct ReviewContext: Equatable, Sendable {
     public var before: [Line]
     public var after: [Line]
     public var note: String?
+    /// Alternatives already proposed for this line; non-empty on a renewal.
+    public var priorAlternatives: [String]
 
-    public init(target: Line, address: Anchor, before: [Line], after: [Line], note: String?) {
+    public init(
+        target: Line, address: Anchor, before: [Line], after: [Line],
+        note: String?, priorAlternatives: [String] = []
+    ) {
         self.target = target
         self.address = address
         self.before = before
         self.after = after
         self.note = note
+        self.priorAlternatives = priorAlternatives
     }
 }
 
@@ -141,9 +151,10 @@ public struct ReviewPipeline {
     public func run(
         _ request: ReviewRequest, config: ReviewerConfig, episode: Episode
     ) async throws -> Card {
-        let context = try retriever.retrieve(
+        var context = try retriever.retrieve(
             subject: request.subject, note: request.note, spec: config.retrieval, from: episode
         )
+        context.priorAlternatives = request.priorAlternatives
         let verdict = try await reasoner.reason(context: context, config: config)
         return emit(verdict, request: request, config: config)
     }

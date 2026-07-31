@@ -10,6 +10,7 @@ import StoryKit
 
 struct CutSectionView: View {
     let cut: Cut
+    let changedLineIDs: Set<LineID>
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -21,7 +22,10 @@ struct CutSectionView: View {
                     .padding(.bottom, 2)
             }
             ForEach(Array(cut.lines.enumerated()), id: \.offset) { entry in
-                LineRowView(number: entry.offset + 1, line: entry.element)
+                LineRowView(
+                    number: entry.offset + 1, line: entry.element,
+                    isChanged: changedLineIDs.contains(entry.element.id)
+                )
             }
         }
         .padding(.horizontal, 28)
