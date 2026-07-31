@@ -15,6 +15,7 @@ struct RootView: View {
     @Environment(ProjectViewModel.self) private var model
     @Environment(\.openWindow) private var openWindow
     @State private var importing = false
+    @State private var importingNorthStar = false
     @State private var showingSettings = false
 
     var body: some View {
@@ -29,6 +30,15 @@ struct RootView: View {
             ) { result in
                 if case .success(let urls) = result, let url = urls.first {
                     model.importEpisode(from: url)
+                }
+            }
+            .fileImporter(
+                isPresented: $importingNorthStar,
+                allowedContentTypes: [.plainText, .text],
+                allowsMultipleSelection: false
+            ) { result in
+                if case .success(let urls) = result, let url = urls.first {
+                    model.importNorthStar(from: url)
                 }
             }
             .toolbar { toolbar }
@@ -83,9 +93,16 @@ struct RootView: View {
                 .popover(isPresented: $showingSettings, arrowEdge: .bottom) {
                     SettingsPopover(
                         storePath: loaded.storePath,
+                        northStarStatus: model.northStar.map {
+                            "Loaded from \($0.sourceFilename ?? "a file")"
+                        },
                         onImport: {
                             showingSettings = false
                             importing = true
+                        },
+                        onImportNorthStar: {
+                            showingSettings = false
+                            importingNorthStar = true
                         },
                         onReset: {
                             showingSettings = false

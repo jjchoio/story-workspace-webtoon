@@ -44,6 +44,10 @@ final class ProjectViewModel {
     /// persisted attribute.
     private(set) var changedLineIDs: Set<LineID> = []
 
+    /// The project's North Star (shared reviewer context), loaded from the store.
+    /// Independent of the loaded episode — it grounds every review.
+    private(set) var northStar: NorthStar?
+
     private let projectName = "CafeAlameda"
 
     /// On launch: load the existing document if there is one, else stay empty.
@@ -51,6 +55,7 @@ final class ProjectViewModel {
         do {
             let url = try projectURL()
             let store = try FileProjectStore(rootDirectory: url)
+            northStar = try store.loadNorthStar()
             if let existing = try store.documents().first {
                 state = try loadedState(store: store, id: existing.id, url: url, warnings: [])
             } else {
@@ -87,6 +92,22 @@ final class ProjectViewModel {
             state = try loadedState(store: store, id: id, url: url, warnings: result.warnings)
         } catch {
             state = .failed(String(describing: error))
+        }
+    }
+
+    /// Import (or replace) the project's North Star from a .txt file. Stored
+    /// verbatim, overwriting any previous one; does not touch the episode. Kept
+    /// silent on failure (the previous North Star, if any, stays in place) —
+    /// reading a plain-text file the user just picked rarely fails.
+    func importNorthStar(from fileURL: URL) {
+        do {
+            let text = try readText(fileURL)
+            let store = try FileProjectStore(rootDirectory: try projectURL())
+            let star = NorthStar(text: text, sourceFilename: fileURL.lastPathComponent)
+            try store.saveNorthStar(star)
+            northStar = star
+        } catch {
+            // Leave the previous North Star untouched.
         }
     }
 
@@ -133,6 +154,7 @@ final class ProjectViewModel {
             try? FileManager.default.removeItem(at: url)
         }
         changedLineIDs = []
+        northStar = nil
         state = .loading
         load()
     }

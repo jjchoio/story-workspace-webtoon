@@ -59,7 +59,9 @@ struct ReviewCardPreview: View {
             reasoner: LLMReasoner(model: claude)
         )
         let request = ReviewRequest(subject: anchor, priorAlternatives: priorAlternatives)
-        return try await pipeline.run(request, config: .dialogue, episode: episode)
+        return try await pipeline.run(
+            request, config: .dialogue, episode: episode, northStar: model.northStar?.text
+        )
     }
 
     private func runReview() async {
