@@ -21,7 +21,14 @@ struct CardOptionRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
-                .background(.quaternary.opacity(isSelected ? 0 : 0.35), in: RoundedRectangle(cornerRadius: 10))
+                // Opaque chip so a tinted/solid card background doesn't color the
+                // buttons — they sit in front of the fill.
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                        .overlay(RoundedRectangle(cornerRadius: 10)
+                            .fill(isSelected ? Color.accentColor.opacity(0.14) : .clear))
+                )
                 .overlay(
                     RoundedRectangle(cornerRadius: 10)
                         .strokeBorder(isSelected ? Color.accentColor : .clear, lineWidth: 1.5)

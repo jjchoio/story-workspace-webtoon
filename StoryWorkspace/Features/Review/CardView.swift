@@ -23,6 +23,9 @@ struct CardView: View {
     var onRenew: () -> Void = {}
     var onDismiss: () -> Void = {}
 
+    // TEMP visual sandbox (CardStyle.swift): drives the card's chrome.
+    @Environment(CardStyleSettings.self) private var cardStyle
+
     @State private var selectedOptionID: String?
     @State private var dismissed = false
     @State private var authoredText: String = ""
@@ -81,8 +84,39 @@ struct CardView: View {
             )
         }
         .frame(width: 460)
-        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(.separator.opacity(0.6)))
+        .background(cardBackground)
+        .overlay(cardBorder)
+        .shadow(color: accentStyle == .outline ? accentColor.opacity(0.45) : .clear, radius: 4, y: 1)
+    }
+
+    // MARK: Visual treatment (TEMP sandbox — see CardStyle.swift)
+
+    private var accentColor: Color { cardStyle.color.color }
+
+    private var accentStyle: CardAccentStyle { cardStyle.style }
+
+    @ViewBuilder
+    private var cardBackground: some View {
+        let shape = RoundedRectangle(cornerRadius: 16)
+        switch accentStyle {
+        case .plain, .outline:
+            shape.fill(.regularMaterial)
+        case .filled:
+            shape.fill(.regularMaterial).overlay(shape.fill(accentColor.opacity(0.14)))
+        case .solid:
+            shape.fill(accentColor)
+        }
+    }
+
+    @ViewBuilder
+    private var cardBorder: some View {
+        let shape = RoundedRectangle(cornerRadius: 16)
+        switch accentStyle {
+        case .plain:   shape.strokeBorder(.separator.opacity(0.6), lineWidth: 1)
+        case .outline: shape.strokeBorder(accentColor, lineWidth: 2)
+        case .filled:  shape.strokeBorder(accentColor.opacity(0.5), lineWidth: 1.5)
+        case .solid:   shape.strokeBorder(.black.opacity(0.18), lineWidth: 1)
+        }
     }
 
     // MARK: Chrome

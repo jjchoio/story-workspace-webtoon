@@ -84,6 +84,12 @@ struct RootView: View {
                 .disabled(model.reviewAnchor == nil)
                 .help(model.reviewAnchor == nil ? "Select a line in Read Mode to review" : "Review the selected line")
             }
+            // TEMP: open the card-style A/B debug window (drop with CardStyle.swift).
+            ToolbarItem(placement: .primaryAction) {
+                Button { openWindow(id: "card-style-debug") } label: {
+                    Label("Card Style", systemImage: "paintpalette")
+                }
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button { showingSettings.toggle() } label: {
                     Label("Settings", systemImage: "gearshape")
