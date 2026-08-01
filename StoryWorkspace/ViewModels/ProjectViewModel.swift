@@ -107,6 +107,19 @@ final class ProjectViewModel {
         }
     }
 
+    /// Reorder episodes in the library (drag-reorder) and persist the new order.
+    func moveEpisodes(fromOffsets: IndexSet, toOffset: Int) {
+        guard case .loaded(var loaded) = state else { return }
+        loaded.documents.move(fromOffsets: fromOffsets, toOffset: toOffset)
+        do {
+            let store = try FileProjectStore(rootDirectory: try projectURL())
+            try store.setDocumentOrder(loaded.documents.map(\.id))
+        } catch {
+            // Keep the in-memory reorder even if persisting the order fails.
+        }
+        state = .loaded(loaded)
+    }
+
     /// Open a different episode from the library.
     func selectEpisode(_ id: DocumentID) {
         guard case .loaded(let loaded) = state, loaded.selectedDocumentID != id else { return }

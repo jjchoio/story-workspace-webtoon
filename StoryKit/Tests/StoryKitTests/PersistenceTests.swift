@@ -118,6 +118,33 @@ struct PersistenceTests {
         #expect(docs.first?.name == "Cafe Alameda EP2")
     }
 
+    // MARK: Document ordering (drag-reorder in the library)
+
+    @Test("A saved document order drives documents() and survives reopen")
+    func documentOrderPersists() throws {
+        let dir = tempDir()
+        let store = try FileProjectStore(rootDirectory: dir)
+        let ep2 = try store.createDocument(name: "EP2", episode: sampleEpisode(goal: "2"), provenance: Provenance(action: "import"))
+        let ep1 = try store.createDocument(name: "EP1", episode: sampleEpisode(goal: "1"), provenance: Provenance(action: "import"))
+
+        try store.setDocumentOrder([ep1, ep2])
+        #expect(try store.documents().map(\.id) == [ep1, ep2])
+
+        let reopened = try FileProjectStore(rootDirectory: dir)
+        #expect(try reopened.documents().map(\.id) == [ep1, ep2])
+    }
+
+    @Test("Documents absent from the saved order sort after the ordered ones")
+    func documentOrderAppendsUnlisted() throws {
+        let dir = tempDir()
+        let store = try FileProjectStore(rootDirectory: dir)
+        let a = try store.createDocument(name: "A", episode: sampleEpisode(goal: "a"), provenance: Provenance(action: "import"))
+        let b = try store.createDocument(name: "B", episode: sampleEpisode(goal: "b"), provenance: Provenance(action: "import"))
+
+        try store.setDocumentOrder([b]) // only b is ordered
+        #expect(try store.documents().map(\.id) == [b, a])
+    }
+
     // MARK: North Star (shared reviewer context)
 
     @Test("A saved North Star reloads from a new store on the same directory")

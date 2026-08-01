@@ -86,7 +86,30 @@ public final class FileProjectStore: ProjectStore {
             guard fm.fileExists(atPath: metaURL.path) else { return nil }
             return try decoder.decode(StoredDocument.self, from: Data(contentsOf: metaURL))
         }
-        return metas.sorted { $0.createdAt < $1.createdAt }
+
+        // Listed docs first, in saved order; the rest by import date.
+        let order = loadDocumentOrder()
+        let rank = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
+        return metas.sorted { a, b in
+            switch (rank[a.id.rawValue], rank[b.id.rawValue]) {
+            case let (ra?, rb?): return ra < rb
+            case (_?, nil): return true
+            case (nil, _?): return false
+            case (nil, nil): return a.createdAt < b.createdAt
+            }
+        }
+    }
+
+    public func setDocumentOrder(_ ids: [DocumentID]) throws {
+        try write(ids.map(\.rawValue), to: documentOrderURL)
+    }
+
+    private func loadDocumentOrder() -> [String] {
+        guard fm.fileExists(atPath: documentOrderURL.path),
+              let data = try? Data(contentsOf: documentOrderURL),
+              let ids = try? decoder.decode([String].self, from: data)
+        else { return [] }
+        return ids
     }
 
     public func loadNorthStar() throws -> NorthStar? {
@@ -116,6 +139,7 @@ public final class FileProjectStore: ProjectStore {
     private var documentsDirectory: URL { rootDirectory.appendingPathComponent("documents", isDirectory: true) }
     private var historyURL: URL { rootDirectory.appendingPathComponent("history.jsonl") }
     private var northStarURL: URL { rootDirectory.appendingPathComponent("north-star.json") }
+    private var documentOrderURL: URL { rootDirectory.appendingPathComponent("document-order.json") }
     private func documentDirectory(_ id: DocumentID) -> URL {
         documentsDirectory.appendingPathComponent(id.rawValue, isDirectory: true)
     }

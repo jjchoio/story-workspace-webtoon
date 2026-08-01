@@ -20,11 +20,19 @@ struct LibrarySidebar: View {
     let onAddEpisode: (URL) -> Void
     let onUpdateEpisode: (DocumentID, URL) -> Void
     let onImportNorthStar: (URL) -> Void
+    let onMoveEpisodes: (IndexSet, Int) -> Void
 
-    @State private var addingEpisode = false
-    @State private var settingNorthStar = false
-    @State private var updatingEpisode = false
-    @State private var updateTargetID: DocumentID?
+    /// What a triggered file pick will do when it completes. A SINGLE
+    /// fileImporter is driven by this — stacking multiple `.fileImporter`
+    /// modifiers on one view makes all but one silently never present.
+    private enum ImportKind {
+        case episode
+        case northStar
+        case update(DocumentID)
+    }
+
+    @State private var importing = false
+    @State private var pendingImport: ImportKind = .episode
     @State private var pendingDropURL: URL?
     @State private var classifyingDrop = false
 
@@ -35,9 +43,19 @@ struct LibrarySidebar: View {
                     Label(northStarName ?? "North Star", systemImage: "star")
                         .lineLimit(1)
                         .tag(LibraryItem.northStar)
+                        .contextMenu {
+                            Button("Replace North Star…") { beginImport(.northStar) }
+                        }
                 } else {
-                    Label("North Star — none yet", systemImage: "star")
-                        .foregroundStyle(.secondary)
+                    // No North Star yet — the row itself uploads one (tap), and
+                    // dropping a file still works via the classify dialog.
+                    Button { beginImport(.northStar) } label: {
+                        Label("Set North Star…", systemImage: "star")
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
                 }
             }
 
@@ -52,25 +70,22 @@ struct LibrarySidebar: View {
                         .lineLimit(1)
                         .tag(LibraryItem.episode(doc.id))
                         .contextMenu {
-                            Button("Update…") {
-                                updateTargetID = doc.id
-                                updatingEpisode = true
-                            }
+                            Button("Update…") { beginImport(.update(doc.id)) }
                         }
                 }
+                .onMove(perform: onMoveEpisodes)
             }
         }
         .listStyle(.sidebar)
         .safeAreaInset(edge: .bottom) { bottomBar }
         .onDrop(of: [.fileURL], isTargeted: nil, perform: handleDrop)
-        .fileImporter(isPresented: $addingEpisode, allowedContentTypes: [.plainText, .text]) { result in
-            if case .success(let url) = result { onAddEpisode(url) }
-        }
-        .fileImporter(isPresented: $settingNorthStar, allowedContentTypes: [.plainText, .text]) { result in
-            if case .success(let url) = result { onImportNorthStar(url) }
-        }
-        .fileImporter(isPresented: $updatingEpisode, allowedContentTypes: [.plainText, .text]) { result in
-            if case .success(let url) = result, let id = updateTargetID { onUpdateEpisode(id, url) }
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.plainText, .text]) { result in
+            guard case .success(let url) = result else { return }
+            switch pendingImport {
+            case .episode: onAddEpisode(url)
+            case .northStar: onImportNorthStar(url)
+            case .update(let id): onUpdateEpisode(id, url)
+            }
         }
         .confirmationDialog(
             "Import as", isPresented: $classifyingDrop, presenting: pendingDropURL
@@ -86,8 +101,8 @@ struct LibrarySidebar: View {
     private var bottomBar: some View {
         HStack(spacing: 0) {
             Menu {
-                Button("Add Episode…") { addingEpisode = true }
-                Button(hasNorthStar ? "Replace North Star…" : "Set North Star…") { settingNorthStar = true }
+                Button("Add Episode…") { beginImport(.episode) }
+                Button(hasNorthStar ? "Replace North Star…" : "Set North Star…") { beginImport(.northStar) }
             } label: {
                 Label("Add", systemImage: "plus")
                     .labelStyle(.iconOnly)
@@ -102,6 +117,11 @@ struct LibrarySidebar: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 6)
         .background(.bar)
+    }
+
+    private func beginImport(_ kind: ImportKind) {
+        pendingImport = kind
+        importing = true
     }
 
     /// A dropped file has a URL but no type — classify it before importing.

@@ -20,6 +20,7 @@ struct LibraryView: View {
     let onAddEpisode: (URL) -> Void
     let onUpdateEpisode: (DocumentID, URL) -> Void
     let onImportNorthStar: (URL) -> Void
+    let onMoveEpisodes: (IndexSet, Int) -> Void
 
     @State private var selection: LibraryItem?
     @State private var readerTarget: ReaderTarget? = .goal
@@ -33,7 +34,8 @@ struct LibraryView: View {
                 selection: $selection,
                 onAddEpisode: onAddEpisode,
                 onUpdateEpisode: onUpdateEpisode,
-                onImportNorthStar: onImportNorthStar
+                onImportNorthStar: onImportNorthStar,
+                onMoveEpisodes: onMoveEpisodes
             )
             .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 340)
         } content: {

@@ -60,7 +60,8 @@ struct RootView: View {
                 onSelectEpisode: { model.selectEpisode($0) },
                 onAddEpisode: { model.addEpisode(from: $0) },
                 onUpdateEpisode: { model.updateEpisode($0, from: $1) },
-                onImportNorthStar: { model.importNorthStar(from: $0) }
+                onImportNorthStar: { model.importNorthStar(from: $0) },
+                onMoveEpisodes: { model.moveEpisodes(fromOffsets: $0, toOffset: $1) }
             )
         }
     }
