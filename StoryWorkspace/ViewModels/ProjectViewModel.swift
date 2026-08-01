@@ -51,6 +51,20 @@ final class ProjectViewModel {
     /// Independent of the loaded episode — it grounds every review.
     private(set) var northStar: NorthStar?
 
+    /// The line the author has selected in Read Mode to review, if any. Single
+    /// line this phase (multi-line selection is a later phase). Clears when the
+    /// open episode changes.
+    private(set) var reviewAnchor: Anchor?
+
+    /// Bumped each time the author presses Review, so the review window re-runs
+    /// for the current selection even when it is already open.
+    private(set) var reviewRequestID = 0
+
+    /// Pre-change text captured at Accept, keyed by the changed line's id, so a
+    /// change can be reverted this session (D14: revert appends a restoring
+    /// version, it does not roll one back). Cleared when a new review begins.
+    private var revertInfo: [LineID: (anchor: Anchor, previousText: String, reviewer: String)] = [:]
+
     private let projectName = "CafeAlameda"
 
     /// On launch: load the existing document if there is one, else stay empty.
@@ -83,6 +97,9 @@ final class ProjectViewModel {
                 name: name, episode: result.episode,
                 provenance: Provenance(action: "import", note: fileURL.lastPathComponent)
             )
+            reviewAnchor = nil
+            changedLineIDs = []
+            revertInfo = [:]
             state = try loadedState(store: store, id: id, url: url, warnings: result.warnings)
         } catch {
             state = .failed(String(describing: error))
@@ -101,6 +118,9 @@ final class ProjectViewModel {
                 to: id, episode: result.episode,
                 provenance: Provenance(action: "reimport", note: fileURL.lastPathComponent)
             )
+            reviewAnchor = nil
+            changedLineIDs = []
+            revertInfo = [:]
             state = try loadedState(store: store, id: id, url: url, warnings: result.warnings)
         } catch {
             state = .failed(String(describing: error))
@@ -126,10 +146,54 @@ final class ProjectViewModel {
         do {
             let url = try projectURL()
             let store = try FileProjectStore(rootDirectory: url)
+            reviewAnchor = nil // selection belongs to the previously open episode
+            changedLineIDs = []
+            revertInfo = [:]
             state = try loadedState(store: store, id: id, url: url, warnings: [])
         } catch {
             state = .failed(String(describing: error))
         }
+    }
+
+    /// Toggle the review selection for a line in the open episode (click again
+    /// to deselect). The episode label is derived for display only — the cut and
+    /// line index the currently open episode.
+    func toggleReviewLine(cut: Int, line: Int, child: Int?) {
+        guard case .loaded(let loaded) = state else { return }
+        let anchor = Anchor(episode: episodeLabel(loaded.documentName), cut: cut, line: line, child: child)
+        reviewAnchor = (reviewAnchor == anchor) ? nil : anchor
+    }
+
+    /// Request a review of the current selection (bumps the trigger the review
+    /// window watches). Starting a new review clears the prior session's change
+    /// highlight and Revert affordances.
+    func requestReview() {
+        guard reviewAnchor != nil else { return }
+        changedLineIDs = []
+        revertInfo = [:]
+        reviewRequestID += 1
+    }
+
+    /// Revert a changed line to its pre-Accept text (D14: append a restoring
+    /// version, never roll back). Drops the line's highlight/Revert.
+    func revert(lineID: LineID) {
+        guard case .loaded(var loaded) = state, let info = revertInfo[lineID],
+              let result = loaded.episode.applyingText(info.previousText, at: info.anchor)
+        else { return }
+        loaded.episode = result.episode
+        changedLineIDs.remove(lineID)
+        revertInfo[lineID] = nil
+        do {
+            let store = try FileProjectStore(rootDirectory: try projectURL())
+            let a = info.anchor
+            let note = "revert · \(info.reviewer) @ \(a.episode)/Cut\(a.cut)/Line\(a.line)\(a.child.map { ".\($0)" } ?? "")"
+            let newVersion = try store.addVersion(
+                to: loaded.selectedDocumentID, episode: result.episode,
+                provenance: Provenance(action: "revert", note: note)
+            )
+            loaded.version = newVersion
+        } catch {}
+        state = .loaded(loaded)
     }
 
     /// Import (or replace) the project's North Star from a .txt file. Stored
@@ -156,18 +220,28 @@ final class ProjectViewModel {
     func accept(option: CardOption, anchor: Anchor, reviewer: String, authoredText: String? = nil) {
         guard case .loaded(var loaded) = state else { return }
 
-        let newText: String?
+        let rawText: String?
         switch option.kind {
-        case .alternative: newText = option.detail
-        case .authorWritten: newText = authoredText
-        case .keep: newText = nil // endorsement — no edit, no new version
+        case .alternative: rawText = option.detail
+        case .authorWritten: rawText = authoredText
+        case .keep: rawText = nil // endorsement — no edit, no new version
         }
-        guard let newText, !newText.isEmpty,
+        let targetLine = loaded.episode.line(at: anchor)
+        let previousText = targetLine?.text
+        guard let rawText else { return }
+        // Format the replacement to the target line's convention (drop a stray
+        // speaker prefix, mirror its quotes) so speaker + quotes are preserved.
+        let newText = targetLine?.formattedReplacement(rawText)
+            ?? rawText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !newText.isEmpty,
               let result = loaded.episode.applyingText(newText, at: anchor)
         else { return }
 
         loaded.episode = result.episode
         changedLineIDs.insert(result.changed)
+        if revertInfo[result.changed] == nil, let previousText {
+            revertInfo[result.changed] = (anchor: anchor, previousText: previousText, reviewer: reviewer)
+        }
 
         do {
             let store = try FileProjectStore(rootDirectory: try projectURL())
@@ -191,7 +265,9 @@ final class ProjectViewModel {
             try? FileManager.default.removeItem(at: url)
         }
         changedLineIDs = []
+        revertInfo = [:]
         northStar = nil
+        reviewAnchor = nil
         state = .loading
         load()
     }
@@ -217,6 +293,18 @@ final class ProjectViewModel {
             storePath: url.path,
             warnings: warnings
         ))
+    }
+
+    /// A short episode label for anchors/cards ("EP2", "Episode 2") pulled from
+    /// the document name; falls back to the name when no episode number is found.
+    private func episodeLabel(_ name: String) -> String {
+        if let r = name.range(of: #"EP\s*\d+"#, options: [.regularExpression, .caseInsensitive]) {
+            return name[r].replacingOccurrences(of: " ", with: "").uppercased()
+        }
+        if let r = name.range(of: #"Episode\s*\d+"#, options: [.regularExpression, .caseInsensitive]) {
+            return String(name[r])
+        }
+        return name
     }
 
     private func projectURL() throws -> URL {

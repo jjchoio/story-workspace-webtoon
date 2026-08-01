@@ -24,39 +24,32 @@ public struct ReviewRequest: Equatable, Sendable {
     }
 }
 
-/// How much surrounding context a reviewer pulls around the subject line.
-public struct RetrievalSpec: Equatable, Sendable {
-    /// Lines of context gathered on each side of the subject line.
-    public var neighbors: Int
-
-    public init(neighbors: Int) {
-        self.neighbors = neighbors
-    }
-}
-
-/// A reviewer as configuration (D8): identity, its role prompt, and its
-/// retrieval strategy. `rolePrompt` is unused by the stub reasoner but is the
-/// field the real reasoner sends to the model at Item 6. Code overrides at any
-/// stage (D8) are a future concern — not modeled until a reviewer needs one.
+/// A reviewer as configuration (D8): identity and its role prompt. `rolePrompt`
+/// is unused by the stub reasoner but is the field the real reasoner sends to
+/// the model. Per-reviewer retrieval strategy (each reviewer fetching context
+/// its own way) is a documented later phase; for now every reviewer reads the
+/// whole episode, so there is nothing to configure here yet.
 public struct ReviewerConfig: Sendable {
     public var reviewer: Reviewer
     public var rolePrompt: String
-    public var retrieval: RetrievalSpec
 
-    public init(reviewer: Reviewer, rolePrompt: String, retrieval: RetrievalSpec) {
+    public init(reviewer: Reviewer, rolePrompt: String) {
         self.reviewer = reviewer
         self.rolePrompt = rolePrompt
-        self.retrieval = retrieval
     }
 }
 
-/// What the retrieve stage produced: the subject line plus its neighbors, in
-/// document order (D2 — the reviewer privately owns its context).
+/// What the retrieve stage produced: the whole episode as context plus the
+/// single line under review (D2 — the reviewer privately owns its context).
 public struct ReviewContext: Equatable, Sendable {
-    public var target: Line
+    /// The whole episode under review — the reviewer reads it for context so it
+    /// judges the target line against the surrounding dialogue and arc.
+    public var episode: Episode
+    /// The single line under review. Single-line this phase; when selection
+    /// grows to multiple lines / a whole cut, this becomes a set while the
+    /// episode stays the shared context, so consumers change little.
     public var address: Anchor
-    public var before: [Line]
-    public var after: [Line]
+    public var target: Line
     public var note: String?
     /// Alternatives already proposed for this line; non-empty on a renewal.
     public var priorAlternatives: [String]
@@ -66,13 +59,12 @@ public struct ReviewContext: Equatable, Sendable {
     public var northStar: String?
 
     public init(
-        target: Line, address: Anchor, before: [Line], after: [Line],
-        note: String?, priorAlternatives: [String] = [], northStar: String? = nil
+        episode: Episode, address: Anchor, target: Line, note: String? = nil,
+        priorAlternatives: [String] = [], northStar: String? = nil
     ) {
-        self.target = target
+        self.episode = episode
         self.address = address
-        self.before = before
-        self.after = after
+        self.target = target
         self.note = note
         self.priorAlternatives = priorAlternatives
         self.northStar = northStar
@@ -105,7 +97,7 @@ public enum ReviewError: Error, Equatable {
 /// The retrieve stage: turn a subject anchor into a context slice.
 public protocol Retriever: Sendable {
     func retrieve(
-        subject: Anchor, note: String?, spec: RetrievalSpec, from episode: Episode
+        subject: Anchor, note: String?, from episode: Episode
     ) throws -> ReviewContext
 }
 
@@ -115,13 +107,13 @@ public protocol Reasoner: Sendable {
     func reason(context: ReviewContext, config: ReviewerConfig) async throws -> ReviewerVerdict
 }
 
-/// v1 retrieval: the subject line and up to `spec.neighbors` lines on each side,
-/// within the same cut. Addressing is per-cut and 1-based (D11).
-public struct NearbyLinesRetriever: Retriever {
+/// v1 retrieval: validate the subject anchor and hand the reviewer the whole
+/// episode as context. Addressing is per-cut and 1-based (D11).
+public struct EpisodeContextRetriever: Retriever {
     public init() {}
 
     public func retrieve(
-        subject: Anchor, note: String?, spec: RetrievalSpec, from episode: Episode
+        subject: Anchor, note: String?, from episode: Episode
     ) throws -> ReviewContext {
         let cutIndex = subject.cut - 1
         let lineIndex = subject.line - 1
@@ -132,10 +124,8 @@ public struct NearbyLinesRetriever: Retriever {
         guard lines.indices.contains(lineIndex) else {
             throw ReviewError.subjectOutOfRange(subject)
         }
-        let before = Array(lines[max(0, lineIndex - spec.neighbors)..<lineIndex])
-        let after = Array(lines[(lineIndex + 1)..<min(lines.count, lineIndex + 1 + spec.neighbors)])
         return ReviewContext(
-            target: lines[lineIndex], address: subject, before: before, after: after, note: note
+            episode: episode, address: subject, target: lines[lineIndex], note: note
         )
     }
 }
@@ -158,7 +148,7 @@ public struct ReviewPipeline {
         northStar: String? = nil
     ) async throws -> Card {
         var context = try retriever.retrieve(
-            subject: request.subject, note: request.note, spec: config.retrieval, from: episode
+            subject: request.subject, note: request.note, from: episode
         )
         context.priorAlternatives = request.priorAlternatives
         context.northStar = northStar

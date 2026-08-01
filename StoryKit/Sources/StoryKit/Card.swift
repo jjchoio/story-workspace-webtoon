@@ -50,11 +50,16 @@ public struct Anchor: Equatable, Sendable, Codable {
     public var episode: String     // "EP1"
     public var cut: Int
     public var line: Int
+    /// The sub-line (child) index, 1-based, when the target is a child beat
+    /// (D15: EP / Cut / Line / Child). nil addresses the top-level line. Older
+    /// stored cards without this key decode as nil.
+    public var child: Int?
 
-    public init(episode: String, cut: Int, line: Int) {
+    public init(episode: String, cut: Int, line: Int, child: Int? = nil) {
         self.episode = episode
         self.cut = cut
         self.line = line
+        self.child = child
     }
 }
 

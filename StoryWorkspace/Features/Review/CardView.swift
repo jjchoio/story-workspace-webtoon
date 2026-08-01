@@ -13,6 +13,10 @@ import StoryKit
 
 struct CardView: View {
     let card: Card
+    /// Whether the reviewed line is currently accepted (driven by the model, so
+    /// reverting the edit in Read Mode flips the badge back — not stuck on
+    /// "accepted").
+    var isAccepted: Bool = false
     /// Called when the author accepts an option. String is the author's typed
     /// line for an author-written option, nil otherwise.
     var onAccept: (CardOption, String?) -> Void = { _, _ in }
@@ -20,20 +24,29 @@ struct CardView: View {
     var onDismiss: () -> Void = {}
 
     @State private var selectedOptionID: String?
-    @State private var status: CardStatus
+    @State private var dismissed = false
     @State private var authoredText: String = ""
 
     init(
         card: Card,
+        isAccepted: Bool = false,
         onAccept: @escaping (CardOption, String?) -> Void = { _, _ in },
         onRenew: @escaping () -> Void = {},
         onDismiss: @escaping () -> Void = {}
     ) {
         self.card = card
+        self.isAccepted = isAccepted
         self.onAccept = onAccept
         self.onRenew = onRenew
         self.onDismiss = onDismiss
-        _status = State(initialValue: card.status)
+    }
+
+    /// The badge state: the model's accept/revert wins; dismiss is local; else
+    /// the card's own lifecycle status.
+    private var displayStatus: CardStatus {
+        if isAccepted { return .accepted }
+        if dismissed { return .dismissed }
+        return card.status
     }
 
     private var selectedOption: CardOption? {
@@ -60,10 +73,11 @@ struct CardView: View {
                 onAccept: {
                     guard let option = selectedOption else { return }
                     onAccept(option, option.kind == .authorWritten ? authoredText : nil)
-                    status = .accepted
+                    // The badge flips via isAccepted (model-driven), so revert
+                    // reflects here too.
                 },
                 onRenew: onRenew,
-                onDismiss: { status = .dismissed; onDismiss() }
+                onDismiss: { dismissed = true; onDismiss() }
             )
         }
         .frame(width: 460)
@@ -87,7 +101,7 @@ struct CardView: View {
                     .foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
-            CardStatusBadge(version: card.version, status: status)
+            CardStatusBadge(version: card.version, status: displayStatus)
         }
         .padding(16)
     }

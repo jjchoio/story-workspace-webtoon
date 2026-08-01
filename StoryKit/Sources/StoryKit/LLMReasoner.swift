@@ -32,7 +32,7 @@ public struct LLMReasoner: Reasoner {
         let userText = Self.renderContext(context, reviewer: config.reviewer)
 
         Self.log.info(
-            "reasoning reviewer=\(config.reviewer.name, privacy: .public) anchor=\(context.address.episode, privacy: .public)/c\(context.address.cut, privacy: .public)/l\(context.address.line, privacy: .public) neighbors=\(context.before.count + context.after.count, privacy: .public)"
+            "reasoning reviewer=\(config.reviewer.name, privacy: .public) anchor=\(context.address.episode, privacy: .public)/c\(context.address.cut, privacy: .public)/l\(context.address.line, privacy: .public) cuts=\(context.episode.cuts.count, privacy: .public) northStar=\(context.northStar != nil, privacy: .public)"
         )
 
         let response = try await model.send(
@@ -42,7 +42,27 @@ public struct LLMReasoner: Reasoner {
                 maxTokens: maxTokens
             )
         )
-        return try VerdictParser.parse(response.text)
+        let verdict = try VerdictParser.parse(response.text)
+        // Rebuild any quote block straight from the reviewed line so the card
+        // shows exactly that line — the model sometimes duplicates the speaker
+        // into the quote content ("Andie: Andie shouts: …").
+        let blocks = verdict.blocks.map { block -> CardBlock in
+            if case .quote = block {
+                return .quote(speaker: context.target.speaker, content: context.target.text)
+            }
+            return block
+        }
+        // Normalize each option's detail against the reviewed line's format
+        // (drop a stray speaker prefix, mirror its quoting) so the card shows —
+        // and Accept applies — a line that matches the original convention.
+        let options = verdict.options.map { option -> CardOption in
+            guard let detail = option.detail else { return option }
+            return CardOption(
+                id: option.id, kind: option.kind, label: option.label,
+                detail: context.target.formattedReplacement(detail)
+            )
+        }
+        return ReviewerVerdict(blocks: blocks, options: options)
     }
 
     // MARK: Prompt building
@@ -72,34 +92,38 @@ public struct LLMReasoner: Reasoner {
         { "type": "text", "label": "<short heading or null>", "content": "<your reasoning>" }
       ],
       "options": [
-        { "kind": "alternative", "label": "<short label>", "detail": "<the rewritten line>" },
-        { "kind": "keep", "label": "Keep", "detail": "<the original line>" },
+        { "kind": "alternative", "label": "<short label>", "detail": "<the rewritten line TEXT only>" },
+        { "kind": "keep", "label": "Keep", "detail": "<the original line text, verbatim>" },
         { "kind": "authorWritten", "label": "Write your own…" }
       ]
     }
     Use "kind" values from: "keep", "alternative", "authorWritten". Omit "detail"
     for an authorWritten option. Include at least one block and one option.
+    A "detail" is the line's TEXT ONLY — never prefix it with the speaker name or
+    label (the speaker is carried separately); keep the original's punctuation.
+    Likewise a quote block's "content" is the line's text only, with the speaker
+    in the "speaker" field.
     """
 
-    /// Render the retrieved slice as the user turn.
+    /// Render the whole episode as the user turn, with the single target line
+    /// marked. The reviewer reads the full episode for context but changes only
+    /// the marked line.
     static func renderContext(_ context: ReviewContext, reviewer: Reviewer) -> String {
         var lines: [String] = []
         lines.append("You are the \(reviewer.name) (focus: \(reviewer.focus.joined(separator: ", "))).")
-        lines.append("Review this line at \(context.address.episode) / Cut \(context.address.cut) / Line \(context.address.line).")
+        let lineLabel = "\(context.address.line)\(context.address.child.map { ".\($0)" } ?? "")"
+        lines.append(
+            "Review ONLY the single line marked » (LINE UNDER REVIEW), at \(context.address.episode) / Cut \(context.address.cut) / Line \(lineLabel). The full episode below is context so you understand the moment — do not review any other line."
+        )
         if let note = context.note, !note.isEmpty {
             lines.append("Author note: \(note)")
         }
         lines.append("")
-        if !context.before.isEmpty {
-            lines.append("Preceding lines:")
-            lines.append(contentsOf: context.before.map { "  \(Self.render($0))" })
+        lines.append("FULL EPISODE (for context):")
+        if let goal = context.episode.goal {
+            lines.append("Goal: \(goal)")
         }
-        lines.append("LINE UNDER REVIEW:")
-        lines.append("  \(Self.render(context.target))")
-        if !context.after.isEmpty {
-            lines.append("Following lines:")
-            lines.append(contentsOf: context.after.map { "  \(Self.render($0))" })
-        }
+        lines.append(contentsOf: Self.renderEpisode(context.episode, target: context.address))
         if !context.priorAlternatives.isEmpty {
             lines.append("")
             lines.append("You already suggested: \(context.priorAlternatives.map { "“\($0)”" }.joined(separator: "; ")).")
@@ -108,6 +132,29 @@ public struct LLMReasoner: Reasoner {
             )
         }
         return lines.joined(separator: "\n")
+    }
+
+    /// The episode cut-by-cut with per-cut/line numbering; the target line is
+    /// prefixed with `»` so the model can locate it unambiguously.
+    private static func renderEpisode(_ episode: Episode, target: Anchor) -> [String] {
+        var out: [String] = []
+        for (ci, cut) in episode.cuts.enumerated() {
+            let cutNo = ci + 1
+            out.append("")
+            out.append("Cut \(cutNo): \(cut.title)")
+            if let description = cut.description { out.append("  (\(description))") }
+            for (li, line) in cut.lines.enumerated() {
+                let lineNo = li + 1
+                let parentMark = (cutNo == target.cut && lineNo == target.line && target.child == nil) ? "»" : " "
+                out.append("\(parentMark) \(cutNo).\(lineNo)  \(Self.render(line))")
+                for (ci, child) in line.children.enumerated() {
+                    let childNo = ci + 1
+                    let childMark = (cutNo == target.cut && lineNo == target.line && target.child == childNo) ? "»" : " "
+                    out.append("\(childMark)     \(cutNo).\(lineNo).\(childNo)  \(Self.render(child))")
+                }
+            }
+        }
+        return out
     }
 
     private static func render(_ line: Line) -> String {

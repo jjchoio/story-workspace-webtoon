@@ -61,7 +61,10 @@ struct RootView: View {
                 onAddEpisode: { model.addEpisode(from: $0) },
                 onUpdateEpisode: { model.updateEpisode($0, from: $1) },
                 onImportNorthStar: { model.importNorthStar(from: $0) },
-                onMoveEpisodes: { model.moveEpisodes(fromOffsets: $0, toOffset: $1) }
+                onMoveEpisodes: { model.moveEpisodes(fromOffsets: $0, toOffset: $1) },
+                reviewAnchor: model.reviewAnchor,
+                onToggleReviewLine: { model.toggleReviewLine(cut: $0, line: $1, child: $2) },
+                onRevert: { model.revert(lineID: $0) }
             )
         }
     }
@@ -71,12 +74,15 @@ struct RootView: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         if case .loaded(let loaded) = model.state {
-            // TEMP (Phase 2 step 6 demo): open the floating review-card window.
-            // Remove with the real review flow.
             ToolbarItem(placement: .primaryAction) {
-                Button { openWindow(id: "review-card") } label: {
+                Button {
+                    model.requestReview()
+                    openWindow(id: "review-card")
+                } label: {
                     Label("Review Line", systemImage: "sparkles")
                 }
+                .disabled(model.reviewAnchor == nil)
+                .help(model.reviewAnchor == nil ? "Select a line in Read Mode to review" : "Review the selected line")
             }
             ToolbarItem(placement: .primaryAction) {
                 Button { showingSettings.toggle() } label: {

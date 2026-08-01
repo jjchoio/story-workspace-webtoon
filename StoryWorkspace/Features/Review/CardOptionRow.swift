@@ -17,6 +17,7 @@ struct CardOptionRow: View {
     var body: some View {
         Button(action: onTap) {
             label
+                .fixedSize(horizontal: false, vertical: true) // wrap, don't clip
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
@@ -32,7 +33,9 @@ struct CardOptionRow: View {
 
     private var label: Text {
         if let detail = option.detail {
-            return Text("\(option.label): ").fontWeight(.medium) + Text("“\(detail)”")
+            // Show the proposed line as-is — it may carry its own quotes, so we
+            // don't add another pair (that produced the “"…"” doubling).
+            return Text("\(option.label): ").fontWeight(.medium) + Text(detail)
         }
         return Text(option.label).foregroundColor(.secondary) // e.g. "Write your own…"
     }

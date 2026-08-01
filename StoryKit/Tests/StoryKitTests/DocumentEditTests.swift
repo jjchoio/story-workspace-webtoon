@@ -30,4 +30,58 @@ struct DocumentEditTests {
         #expect(episode.applyingText("x", at: Anchor(episode: "EP2", cut: 99, line: 1)) == nil)
         #expect(episode.applyingText("x", at: Anchor(episode: "EP2", cut: 1, line: 999)) == nil)
     }
+
+    // MARK: Child (sub-line) addressing (D15)
+
+    private func episodeWithChild() -> Episode {
+        Episode(cuts: [
+            Cut(title: "Hook", lines: [
+                Line(id: LineID("p"), text: "parent text", children: [
+                    Line(id: LineID("c1"), text: "child one"),
+                    Line(id: LineID("c2"), text: "child two"),
+                ]),
+            ]),
+        ])
+    }
+
+    @Test("Applying text to a child anchor edits the child, not the parent")
+    func appliesChildText() throws {
+        let episode = episodeWithChild()
+        let anchor = Anchor(episode: "EP2", cut: 1, line: 1, child: 1)
+
+        let result = try #require(episode.applyingText("a gentler child", at: anchor))
+        #expect(result.episode.cuts[0].lines[0].children[0].text == "a gentler child")
+        #expect(result.episode.cuts[0].lines[0].text == "parent text")    // parent untouched
+        #expect(result.changed == LineID("c1"))                            // the child's id
+    }
+
+    @Test("A child anchor out of range yields nil")
+    func childOutOfRange() throws {
+        let episode = episodeWithChild()
+        #expect(episode.applyingText("x", at: Anchor(episode: "EP2", cut: 1, line: 1, child: 9)) == nil)
+    }
+
+    // MARK: Replacement formatting (mirror the line's speaker/quotes)
+
+    @Test("A replacement mirrors a quoted dialogue line's quotes and drops a stray speaker")
+    func formatsQuotedDialogue() {
+        let line = Line(id: LineID("l"), text: "“Order up, you trash-can!”", speaker: "Andie")
+        #expect(line.formattedReplacement("Order up, tin can.") == "“Order up, tin can.”")
+        #expect(line.formattedReplacement("Andie: Order up, tin can.") == "“Order up, tin can.”")
+        #expect(line.formattedReplacement("“Order up, tin can.”") == "“Order up, tin can.”") // idempotent
+    }
+
+    @Test("A replacement leaves an unquoted narration line unquoted")
+    func formatsNarration() {
+        let line = Line(id: LineID("l"), text: "Andie thinks briefly.")
+        #expect(line.formattedReplacement("Andie considers the diver.") == "Andie considers the diver.")
+    }
+
+    @Test("line(at:) resolves parent and child anchors")
+    func lineAtResolves() throws {
+        let episode = episodeWithChild()
+        #expect(episode.line(at: Anchor(episode: "EP2", cut: 1, line: 1))?.text == "parent text")
+        #expect(episode.line(at: Anchor(episode: "EP2", cut: 1, line: 1, child: 2))?.text == "child two")
+        #expect(episode.line(at: Anchor(episode: "EP2", cut: 1, line: 1, child: 9)) == nil)
+    }
 }

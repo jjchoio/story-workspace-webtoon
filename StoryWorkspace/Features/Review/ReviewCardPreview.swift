@@ -2,10 +2,10 @@
 //  ReviewCardPreview.swift
 //  StoryWorkspace
 //
-//  TEMP (Phase 2 step 6 demo): runs a real Claude review of EP2/Cut1/Line1 and
+//  Runs a live Claude review of the line the author selected in Read Mode, and
 //  hosts the card's interaction cycle — Accept patches the document via the
 //  shared model (highlighting the line in Read Mode), Renew re-runs the reviewer
-//  for a different approach. Remove with the real review flow.
+//  for a different approach. Re-runs whenever the author presses Review.
 //
 
 import SwiftUI
@@ -19,16 +19,15 @@ struct ReviewCardPreview: View {
     @State private var failure: String?
     @State private var renewing = false
 
-    private let anchor = Anchor(episode: "EP2", cut: 1, line: 1)
-
     var body: some View {
         Group {
             if let card {
                 CardView(
                     card: card,
+                    isAccepted: isAccepted(card),
                     onAccept: { option, authored in
                         model.accept(
-                            option: option, anchor: anchor,
+                            option: option, anchor: card.anchor,
                             reviewer: card.reviewer.name, authoredText: authored
                         )
                     },
@@ -47,15 +46,26 @@ struct ReviewCardPreview: View {
                 ProgressView("Reviewing…")
             }
         }
-        .task { await runReview() }
+        // Re-run each time the author presses Review (bumps reviewRequestID).
+        .task(id: model.reviewRequestID) { await runReview() }
+    }
+
+    /// True while the reviewed line is still an accepted change (in the model's
+    /// changed set). Reverting the edit in Read Mode removes it, flipping the
+    /// card's badge off "accepted".
+    private func isAccepted(_ card: Card) -> Bool {
+        guard case .loaded(let loaded) = model.state,
+              let id = loaded.episode.line(at: card.anchor)?.id
+        else { return false }
+        return model.changedLineIDs.contains(id)
     }
 
     // MARK: Pipeline
 
-    private func produceCard(priorAlternatives: [String]) async throws -> Card {
+    private func produceCard(anchor: StoryKit.Anchor, priorAlternatives: [String]) async throws -> Card {
         let claude = try ClaudeModel.fromEnvironment()
         let pipeline = ReviewPipeline(
-            retriever: NearbyLinesRetriever(),
+            retriever: EpisodeContextRetriever(),
             reasoner: LLMReasoner(model: claude)
         )
         let request = ReviewRequest(subject: anchor, priorAlternatives: priorAlternatives)
@@ -65,8 +75,15 @@ struct ReviewCardPreview: View {
     }
 
     private func runReview() async {
+        guard let anchor = model.reviewAnchor else {
+            failure = "Select a line in Read Mode, then press Review."
+            card = nil
+            return
+        }
+        failure = nil
+        card = nil
         do {
-            card = try await produceCard(priorAlternatives: [])
+            card = try await produceCard(anchor: anchor, priorAlternatives: [])
         } catch ModelError.missingAPIKey {
             failure = "Set ANTHROPIC_API_KEY in the Run scheme’s environment variables, then run again."
         } catch {
@@ -82,7 +99,7 @@ struct ReviewCardPreview: View {
         renewing = true
         defer { renewing = false }
         do {
-            var renewed = try await produceCard(priorAlternatives: priors)
+            var renewed = try await produceCard(anchor: current.anchor, priorAlternatives: priors)
             renewed.version = current.version + 1
             renewed.status = .renewed
             card = renewed

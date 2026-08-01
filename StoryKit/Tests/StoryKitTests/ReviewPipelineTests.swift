@@ -14,27 +14,25 @@ struct ReviewPipelineTests {
         try StoryParser.parse(Fixtures.cutScript()).episode
     }
 
-    @Test("Retriever selects the subject line and its trailing neighbors")
+    @Test("Retriever targets the subject line and carries the whole episode")
     func retrieves() throws {
         let episode = try episodeEP2()
         let subject = Anchor(episode: "EP2", cut: 1, line: 1)
-        let context = try NearbyLinesRetriever().retrieve(
-            subject: subject, note: nil, spec: RetrievalSpec(neighbors: 2), from: episode
+        let context = try EpisodeContextRetriever().retrieve(
+            subject: subject, note: nil, from: episode
         )
-        let lines = episode.cuts[0].lines
         #expect(context.address == subject)
-        #expect(context.target == lines[0])
-        #expect(context.before.isEmpty)                       // nothing precedes line 1
-        #expect(context.after == Array(lines.dropFirst().prefix(2)))
+        #expect(context.target == episode.cuts[0].lines[0])
+        #expect(context.episode == episode)                   // full episode as context
     }
 
     @Test("A subject outside the episode throws")
     func outOfRange() throws {
         let episode = try episodeEP2()
         #expect(throws: ReviewError.self) {
-            try NearbyLinesRetriever().retrieve(
+            try EpisodeContextRetriever().retrieve(
                 subject: Anchor(episode: "EP2", cut: 99, line: 1),
-                note: nil, spec: RetrievalSpec(neighbors: 1), from: episode
+                note: nil, from: episode
             )
         }
     }
@@ -43,7 +41,7 @@ struct ReviewPipelineTests {
     func runsPipeline() async throws {
         let episode = try episodeEP2()
         let subject = Anchor(episode: "EP2", cut: 1, line: 1)
-        let pipeline = ReviewPipeline(retriever: NearbyLinesRetriever(), reasoner: StubReasoner())
+        let pipeline = ReviewPipeline(retriever: EpisodeContextRetriever(), reasoner: StubReasoner())
 
         let card = try await pipeline.run(
             ReviewRequest(subject: subject), config: .dialogue, episode: episode
@@ -60,7 +58,7 @@ struct ReviewPipelineTests {
     @Test("The emitted card round-trips through JSON unchanged")
     func roundTrips() async throws {
         let episode = try episodeEP2()
-        let pipeline = ReviewPipeline(retriever: NearbyLinesRetriever(), reasoner: StubReasoner())
+        let pipeline = ReviewPipeline(retriever: EpisodeContextRetriever(), reasoner: StubReasoner())
 
         let card = try await pipeline.run(
             ReviewRequest(subject: Anchor(episode: "EP2", cut: 1, line: 1)),

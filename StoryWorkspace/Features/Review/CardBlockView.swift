@@ -14,7 +14,9 @@ struct CardBlockView: View {
     var body: some View {
         switch block {
         case .quote(let speaker, let content):
-            (speakerText(speaker) + Text("“\(content)”"))
+            // Content is the reviewed line's text as-is (it already carries its
+            // own quotes where appropriate) — don't add another pair.
+            (speakerText(speaker) + Text(content))
                 .font(.body)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)

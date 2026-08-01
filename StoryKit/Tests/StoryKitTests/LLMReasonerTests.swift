@@ -42,9 +42,9 @@ struct LLMReasonerTests {
     }
 
     private func context() throws -> ReviewContext {
-        try NearbyLinesRetriever().retrieve(
+        try EpisodeContextRetriever().retrieve(
             subject: Anchor(episode: "EP2", cut: 1, line: 1),
-            note: nil, spec: RetrievalSpec(neighbors: 2), from: episodeEP2()
+            note: nil, from: episodeEP2()
         )
     }
 
@@ -54,7 +54,9 @@ struct LLMReasonerTests {
         let verdict = try await reasoner.reason(context: context(), config: .dialogue)
 
         #expect(verdict.blocks.count == 2)
-        #expect(verdict.blocks.first == .quote(speaker: "Andie", content: "Order up, you trash-can!"))
+        // The quote block is rebuilt from the reviewed line, not the model's copy.
+        let target = try episodeEP2().cuts[0].lines[0]
+        #expect(verdict.blocks.first == .quote(speaker: target.speaker, content: target.text))
         #expect(verdict.options.map(\.kind) == [.alternative, .keep, .authorWritten])
         #expect(verdict.options.allSatisfy { !$0.id.isEmpty })
         #expect(verdict.options.last?.detail == nil) // authorWritten carries no preview
@@ -115,7 +117,7 @@ struct LLMReasonerTests {
     @Test("The pipeline threads a North Star argument into the reasoner")
     func pipelinePassesNorthStar() async throws {
         let fake = FakeLanguageModel(reply: wellFormedReply)
-        let pipeline = ReviewPipeline(retriever: NearbyLinesRetriever(), reasoner: LLMReasoner(model: fake))
+        let pipeline = ReviewPipeline(retriever: EpisodeContextRetriever(), reasoner: LLMReasoner(model: fake))
         _ = try await pipeline.run(
             ReviewRequest(subject: Anchor(episode: "EP2", cut: 1, line: 1)),
             config: .dialogue, episode: episodeEP2(),
@@ -127,9 +129,9 @@ struct LLMReasonerTests {
     @Test("A renewal request adds different-approach + honesty framing to the prompt")
     func renewalFraming() async throws {
         let episode = try episodeEP2()
-        let renewalContext = try NearbyLinesRetriever().retrieve(
+        let renewalContext = try EpisodeContextRetriever().retrieve(
             subject: Anchor(episode: "EP2", cut: 1, line: 1),
-            note: nil, spec: RetrievalSpec(neighbors: 2), from: episode
+            note: nil, from: episode
         )
         var context = renewalContext
         context.priorAlternatives = ["Order up… try not to break this one."]
@@ -154,7 +156,7 @@ struct LLMReasonerTests {
     @Test("Pipeline with the LLM reasoner emits an open v1 card")
     func runsThroughPipeline() async throws {
         let pipeline = ReviewPipeline(
-            retriever: NearbyLinesRetriever(),
+            retriever: EpisodeContextRetriever(),
             reasoner: LLMReasoner(model: FakeLanguageModel(reply: wellFormedReply))
         )
         let card = try await pipeline.run(
