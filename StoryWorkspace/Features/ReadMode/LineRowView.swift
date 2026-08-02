@@ -60,16 +60,7 @@ struct LineRowView: View {
                 .help("Revert this line")
             }
         }
-        .padding(.horizontal, isChanged || isSelected ? 8 : 0)
-        .padding(.vertical, isChanged || isSelected ? 4 : 0)
-        .background(
-            RoundedRectangle(cornerRadius: 6)
-                .fill(Color.accentColor.opacity(isSelected ? 0.22 : (isChanged ? 0.14 : 0)))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .strokeBorder(Color.accentColor.opacity(isSelected ? 0.7 : 0), lineWidth: 1)
-        )
+        .modifier(ReviewHighlight(isChanged: isChanged, isSelected: isSelected))
         .contentShape(Rectangle())
         .onTapGesture { onToggleReviewLine(cutNumber, number, child) }
     }
@@ -111,5 +102,56 @@ struct LineRowView: View {
             && line.text.count <= 12
             && line.text == line.text.uppercased()
             && line.text.allSatisfy { $0.isLetter || $0.isWhitespace }
+    }
+}
+
+/// Read-Mode line highlight: a subtle **grey** wash when the line is selected
+/// for review, turning **green** once an accepted change lands — with a one-shot
+/// 1.5s "bloom" (an expanding green glow) on that transition. Revert drops it
+/// back to grey. Each row owns its own bloom state via this modifier.
+private struct ReviewHighlight: ViewModifier {
+    let isChanged: Bool
+    let isSelected: Bool
+
+    @State private var bloom: CGFloat = 0 // 0 idle → 1 fully bloomed
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.horizontal, isActive ? 8 : 0)
+            .padding(.vertical, isActive ? 4 : 0)
+            .background(RoundedRectangle(cornerRadius: 6).fill(fill))
+            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(border, lineWidth: 1))
+            .overlay {
+                if isChanged {
+                    // Bloom by swelling the stroke's thickness (and softening it)
+                    // in place, rather than scaling the whole rect outward.
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(CardAccent.accepted.opacity(0.6 * (1 - bloom)), lineWidth: 2 + 12 * bloom)
+                        .blur(radius: 5 * bloom)
+                        .allowsHitTesting(false)
+                }
+            }
+            .animation(.easeOut(duration: 0.12), value: isSelected) // near-instant select
+            .animation(.easeOut(duration: 0.2), value: isChanged)   // quick turn to green
+            .onChange(of: isChanged) { _, changed in
+                if changed {
+                    bloom = 0
+                    withAnimation(.easeOut(duration: 2.0)) { bloom = 1 }
+                } else {
+                    bloom = 0
+                }
+            }
+    }
+
+    private var isActive: Bool { isChanged || isSelected }
+    private var fill: Color {
+        if isChanged { return CardAccent.accepted.opacity(0.22) }
+        if isSelected { return Color.gray.opacity(0.16) }
+        return .clear
+    }
+    private var border: Color {
+        if isChanged { return CardAccent.accepted.opacity(0.55) }
+        if isSelected { return Color.gray.opacity(0.45) }
+        return .clear
     }
 }
