@@ -12,7 +12,7 @@ struct CutSectionView: View {
     let cut: Cut
     let cutNumber: Int
     let changedLineIDs: Set<LineID>
-    let reviewAnchor: StoryKit.Anchor?
+    let reviewAnchors: [StoryKit.Anchor]
     let onToggleReviewLine: (Int, Int, Int?) -> Void
     let onRevert: (LineID) -> Void
 
@@ -31,7 +31,7 @@ struct CutSectionView: View {
                     number: entry.offset + 1,
                     line: entry.element,
                     changedLineIDs: changedLineIDs,
-                    reviewAnchor: reviewAnchor,
+                    reviewAnchors: reviewAnchors,
                     onToggleReviewLine: onToggleReviewLine,
                     onRevert: onRevert
                 )

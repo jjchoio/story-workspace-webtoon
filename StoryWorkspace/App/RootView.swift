@@ -62,11 +62,16 @@ struct RootView: View {
                 onUpdateEpisode: { model.updateEpisode($0, from: $1) },
                 onImportNorthStar: { model.importNorthStar(from: $0) },
                 onMoveEpisodes: { model.moveEpisodes(fromOffsets: $0, toOffset: $1) },
-                reviewAnchor: model.reviewAnchor,
+                reviewAnchors: model.reviewAnchors,
                 onToggleReviewLine: { model.toggleReviewLine(cut: $0, line: $1, child: $2) },
                 onRevert: { model.revert(lineID: $0) }
             )
         }
+    }
+
+    private var reviewButtonTitle: String {
+        let n = model.reviewAnchors.count
+        return n > 1 ? "Review \(n) Lines" : "Review Line"
     }
 
     // MARK: Toolbar
@@ -79,10 +84,10 @@ struct RootView: View {
                     model.requestReview()
                     openWindow(id: "review-card")
                 } label: {
-                    Label("Review Line", systemImage: "sparkles")
+                    Label(reviewButtonTitle, systemImage: "sparkles")
                 }
-                .disabled(model.reviewAnchor == nil)
-                .help(model.reviewAnchor == nil ? "Select a line in Read Mode to review" : "Review the selected line")
+                .disabled(model.reviewAnchors.isEmpty)
+                .help(model.reviewAnchors.isEmpty ? "Select one or more lines in Read Mode to review" : "Review the selected line(s)")
             }
             // TEMP: open the card-style A/B debug window (drop with CardStyle.swift).
             ToolbarItem(placement: .primaryAction) {

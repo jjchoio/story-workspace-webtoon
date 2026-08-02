@@ -20,16 +20,22 @@ private final class FakeLanguageModel: LanguageModel, @unchecked Sendable {
     }
 }
 
+// A batch reply with one card for the reviewed line (Cut 1 / Line 1 → id "1.1").
 private let wellFormedReply = """
 {
-  "blocks": [
-    { "type": "quote", "speaker": "Andie", "content": "Order up, you trash-can!" },
-    { "type": "text", "label": "Voice", "content": "Reads hostile before her warmth lands." }
-  ],
-  "options": [
-    { "kind": "alternative", "label": "Soften", "detail": "Order up… try not to break this one." },
-    { "kind": "keep", "label": "Keep", "detail": "Order up, you trash-can!" },
-    { "kind": "authorWritten", "label": "Write your own…" }
+  "cards": [
+    {
+      "target": "1.1",
+      "blocks": [
+        { "type": "quote", "speaker": "Andie", "content": "Order up, you trash-can!" },
+        { "type": "text", "label": "Voice", "content": "Reads hostile before her warmth lands." }
+      ],
+      "options": [
+        { "kind": "alternative", "label": "Soften", "detail": "Order up… try not to break this one." },
+        { "kind": "keep", "label": "Keep", "detail": "Order up, you trash-can!" },
+        { "kind": "authorWritten", "label": "Write your own…" }
+      ]
+    }
   ]
 }
 """
@@ -37,22 +43,22 @@ private let wellFormedReply = """
 @Suite("Phase 2 — LLM reasoner")
 struct LLMReasonerTests {
 
+    private let anchor1 = Anchor(episode: "EP2", cut: 1, line: 1)
+
     private func episodeEP2() throws -> Episode {
         try StoryParser.parse(Fixtures.cutScript()).episode
     }
 
     private func context() throws -> ReviewContext {
-        try EpisodeContextRetriever().retrieve(
-            subject: Anchor(episode: "EP2", cut: 1, line: 1),
-            note: nil, from: episodeEP2()
-        )
+        try EpisodeContextRetriever().retrieve(subjects: [anchor1], note: nil, from: episodeEP2())
     }
 
-    @Test("A well-formed JSON reply parses into blocks and options with ids")
+    @Test("A well-formed batch reply parses into a per-line verdict with option ids")
     func parsesWellFormed() async throws {
         let reasoner = LLMReasoner(model: FakeLanguageModel(reply: wellFormedReply))
-        let verdict = try await reasoner.reason(context: context(), config: .dialogue)
+        let verdicts = try await reasoner.reason(context: context(), config: .dialogue)
 
+        let verdict = try #require(verdicts[anchor1])
         #expect(verdict.blocks.count == 2)
         // The quote block is rebuilt from the reviewed line, not the model's copy.
         let target = try episodeEP2().cuts[0].lines[0]
@@ -64,9 +70,9 @@ struct LLMReasonerTests {
 
     @Test("JSON wrapped in prose and code fences still parses")
     func parsesTolerant() async throws {
-        let wrapped = "Sure — here's the card:\n```json\n\(wellFormedReply)\n```\nLet me know!"
+        let wrapped = "Sure — here's the cards:\n```json\n\(wellFormedReply)\n```\nLet me know!"
         let reasoner = LLMReasoner(model: FakeLanguageModel(reply: wrapped))
-        let verdict = try await reasoner.reason(context: context(), config: .dialogue)
+        let verdict = try #require(try await reasoner.reason(context: context(), config: .dialogue)[anchor1])
         #expect(verdict.blocks.count == 2)
         #expect(verdict.options.count == 3)
     }
@@ -79,16 +85,65 @@ struct LLMReasonerTests {
         }
     }
 
-    @Test("The request carries the role prompt, JSON contract, and the target line")
+    @Test("A junk block is dropped; the card is still salvaged")
+    func salvagesJunkBlock() async throws {
+        // A stray malformed block in the array must not sink the card.
+        let withJunk = """
+        {"cards":[{"target":"1.1",
+          "blocks":[
+            {"type":"quote","speaker":"Andie","content":"Order up, you trash-can!"},
+            {"kind":null,"type":null},
+            {"type":"text","label":"Voice","content":"Reads hostile."}
+          ],
+          "options":[
+            {"kind":"alternative","label":"Soften","detail":"Order up, careful now."},
+            {"kind":"keep","label":"Keep","detail":"Order up, you trash-can!"},
+            {"kind":"authorWritten","label":"Write your own…"}
+          ]}]}
+        """
+        let verdict = try #require(try await LLMReasoner(model: FakeLanguageModel(reply: withJunk))
+            .reason(context: context(), config: .dialogue)[anchor1])
+        #expect(verdict.blocks.count == 2)   // junk block dropped
+        #expect(verdict.options.count == 3)
+    }
+
+    @Test("A truncated reply salvages the complete cards before the cut-off")
+    func salvagesTruncatedTail() async throws {
+        // Two lines requested; the second card is cut off mid-string.
+        let context = try EpisodeContextRetriever().retrieve(
+            subjects: [anchor1, Anchor(episode: "EP2", cut: 1, line: 3)], note: nil, from: episodeEP2()
+        )
+        let truncated = """
+        {"cards":[
+          {"target":"1.1","blocks":[{"type":"text","label":"A","content":"ok"}],
+           "options":[{"kind":"keep","label":"Keep","detail":"x"}]},
+          {"target":"1.3","blocks":[{"type":"text","label":"B","content":"cut off here
+        """
+        let verdicts = try await LLMReasoner(model: FakeLanguageModel(reply: truncated))
+            .reason(context: context, config: .dialogue)
+        #expect(verdicts[anchor1] != nil)                                   // complete card kept
+        #expect(verdicts[Anchor(episode: "EP2", cut: 1, line: 3)] == nil)  // truncated card dropped
+    }
+
+    @Test("A card for an unknown target id is dropped, not matched")
+    func dropsUnknownTarget() async throws {
+        let stray = wellFormedReply.replacingOccurrences(of: "\"1.1\"", with: "\"9.9\"")
+        let verdicts = try await LLMReasoner(model: FakeLanguageModel(reply: stray))
+            .reason(context: context(), config: .dialogue)
+        #expect(verdicts.isEmpty) // no target matched → empty deck, no crash
+    }
+
+    @Test("The request carries the role prompt, JSON contract, and the marked line")
     func buildsRequest() async throws {
         let fake = FakeLanguageModel(reply: wellFormedReply)
         _ = try await LLMReasoner(model: fake).reason(context: context(), config: .dialogue)
 
         let request = try #require(fake.lastRequest)
         #expect(request.system?.contains(ReviewerConfig.dialogue.rolePrompt) == true)
-        #expect(request.system?.contains("\"blocks\"") == true) // the JSON contract
+        #expect(request.system?.contains("\"cards\"") == true) // the JSON contract
         #expect(request.messages.first?.role == .user)
         #expect(request.messages.first?.text.contains("LINE UNDER REVIEW") == true)
+        #expect(request.messages.first?.text.contains("»[1.1]") == true) // the marked target
     }
 
     @Test("The North Star is injected into the system prompt as project context")
@@ -102,8 +157,6 @@ struct LLMReasonerTests {
         let system = try #require(fake.lastRequest?.system)
         #expect(system.contains("PROJECT CONTEXT — North Star"))
         #expect(system.contains("Coffee is an act of attention, craft, and recognition."))
-        // The North Star is shared project grounding — it belongs in the system
-        // prompt, not the per-line user turn.
         #expect(fake.lastRequest?.messages.first?.text.contains("North Star") == false)
     }
 
@@ -119,7 +172,7 @@ struct LLMReasonerTests {
         let fake = FakeLanguageModel(reply: wellFormedReply)
         let pipeline = ReviewPipeline(retriever: EpisodeContextRetriever(), reasoner: LLMReasoner(model: fake))
         _ = try await pipeline.run(
-            ReviewRequest(subject: Anchor(episode: "EP2", cut: 1, line: 1)),
+            ReviewRequest(subjects: [anchor1]),
             config: .dialogue, episode: episodeEP2(),
             northStar: "The café resists by recognizing each Diver as a person."
         )
@@ -128,12 +181,7 @@ struct LLMReasonerTests {
 
     @Test("A renewal request adds different-approach + honesty framing to the prompt")
     func renewalFraming() async throws {
-        let episode = try episodeEP2()
-        let renewalContext = try EpisodeContextRetriever().retrieve(
-            subject: Anchor(episode: "EP2", cut: 1, line: 1),
-            note: nil, from: episode
-        )
-        var context = renewalContext
+        var context = try context()
         context.priorAlternatives = ["Order up… try not to break this one."]
 
         let fake = FakeLanguageModel(reply: wellFormedReply)
@@ -159,10 +207,10 @@ struct LLMReasonerTests {
             retriever: EpisodeContextRetriever(),
             reasoner: LLMReasoner(model: FakeLanguageModel(reply: wellFormedReply))
         )
-        let card = try await pipeline.run(
-            ReviewRequest(subject: Anchor(episode: "EP2", cut: 1, line: 1)),
-            config: .dialogue, episode: episodeEP2()
+        let cards = try await pipeline.run(
+            ReviewRequest(subjects: [anchor1]), config: .dialogue, episode: episodeEP2()
         )
+        let card = try #require(cards.first)
         #expect(card.status == .open)
         #expect(card.version == 1)
         #expect(!card.blocks.isEmpty)

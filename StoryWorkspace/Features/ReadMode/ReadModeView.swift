@@ -14,8 +14,8 @@ struct ReadModeView: View {
     let episode: Episode
     let warnings: [ParseWarning]
     let changedLineIDs: Set<LineID>
-    /// The line currently selected for review (highlighted), if any.
-    let reviewAnchor: StoryKit.Anchor?
+    /// The lines currently selected for review (highlighted).
+    let reviewAnchors: [StoryKit.Anchor]
     /// Toggle the review selection for a (cut, line, child?) — click to deselect.
     let onToggleReviewLine: (Int, Int, Int?) -> Void
     /// Revert a changed line to its pre-Accept text.
@@ -61,7 +61,7 @@ struct ReadModeView: View {
                                     cut: entry.element,
                                     cutNumber: entry.offset + 1,
                                     changedLineIDs: changedLineIDs,
-                                    reviewAnchor: reviewAnchor,
+                                    reviewAnchors: reviewAnchors,
                                     onToggleReviewLine: onToggleReviewLine,
                                     onRevert: onRevert
                                 )

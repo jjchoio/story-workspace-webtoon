@@ -14,15 +14,16 @@ struct ReviewPipelineTests {
         try StoryParser.parse(Fixtures.cutScript()).episode
     }
 
-    @Test("Retriever targets the subject line and carries the whole episode")
+    @Test("Retriever resolves each subject and carries the whole episode")
     func retrieves() throws {
         let episode = try episodeEP2()
         let subject = Anchor(episode: "EP2", cut: 1, line: 1)
         let context = try EpisodeContextRetriever().retrieve(
-            subject: subject, note: nil, from: episode
+            subjects: [subject], note: nil, from: episode
         )
-        #expect(context.address == subject)
-        #expect(context.target == episode.cuts[0].lines[0])
+        #expect(context.targets.count == 1)
+        #expect(context.targets.first?.address == subject)
+        #expect(context.targets.first?.line == episode.cuts[0].lines[0])
         #expect(context.episode == episode)                   // full episode as context
     }
 
@@ -31,39 +32,40 @@ struct ReviewPipelineTests {
         let episode = try episodeEP2()
         #expect(throws: ReviewError.self) {
             try EpisodeContextRetriever().retrieve(
-                subject: Anchor(episode: "EP2", cut: 99, line: 1),
+                subjects: [Anchor(episode: "EP2", cut: 99, line: 1)],
                 note: nil, from: episode
             )
         }
     }
 
-    @Test("Pipeline emits an open v1 card anchored to the subject")
+    @Test("Pipeline emits an open v1 card per subject, in document order")
     func runsPipeline() async throws {
         let episode = try episodeEP2()
-        let subject = Anchor(episode: "EP2", cut: 1, line: 1)
+        // Deliberately out of order — cards must come back in document order.
+        let subjects = [Anchor(episode: "EP2", cut: 1, line: 3), Anchor(episode: "EP2", cut: 1, line: 1)]
         let pipeline = ReviewPipeline(retriever: EpisodeContextRetriever(), reasoner: StubReasoner())
 
-        let card = try await pipeline.run(
-            ReviewRequest(subject: subject), config: .dialogue, episode: episode
+        let cards = try await pipeline.run(
+            ReviewRequest(subjects: subjects), config: .dialogue, episode: episode
         )
 
-        #expect(card.anchor == subject)
-        #expect(card.reviewer == ReviewerConfig.dialogue.reviewer)
-        #expect(card.version == 1)
-        #expect(card.status == .open)
-        #expect(!card.blocks.isEmpty)
-        #expect(!card.options.isEmpty)
+        #expect(cards.count == 2)
+        #expect(cards.map(\.anchor.line) == [1, 3])           // document order, not selection order
+        #expect(cards.allSatisfy { $0.version == 1 && $0.status == .open })
+        #expect(cards.allSatisfy { !$0.blocks.isEmpty && !$0.options.isEmpty })
+        #expect(cards.allSatisfy { $0.reviewer == ReviewerConfig.dialogue.reviewer })
     }
 
-    @Test("The emitted card round-trips through JSON unchanged")
+    @Test("An emitted card round-trips through JSON unchanged")
     func roundTrips() async throws {
         let episode = try episodeEP2()
         let pipeline = ReviewPipeline(retriever: EpisodeContextRetriever(), reasoner: StubReasoner())
 
-        let card = try await pipeline.run(
-            ReviewRequest(subject: Anchor(episode: "EP2", cut: 1, line: 1)),
+        let cards = try await pipeline.run(
+            ReviewRequest(subjects: [Anchor(episode: "EP2", cut: 1, line: 1)]),
             config: .dialogue, episode: episode
         )
+        let card = try #require(cards.first)
         let encoded = try JSONEncoder().encode(card)
         let again = try JSONDecoder().decode(Card.self, from: encoded)
         #expect(again == card)

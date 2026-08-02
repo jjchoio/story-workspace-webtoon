@@ -30,9 +30,11 @@ struct StoryWorkspaceApp: App {
                 .environment(model)
                 .environment(cardStyle)
         }
-        .defaultSize(width: 500, height: 560)
+        // Wide enough for ~2 cards; the deck scrolls horizontally for more, and
+        // the window is user-resizable (not .contentSize, which would force it to
+        // fit the whole deck).
+        .defaultSize(width: 1000, height: 620)
         .defaultPosition(.trailing)
-        .windowResizability(.contentSize)
         // Don't let the aux windows restore on launch — otherwise macOS can
         // relaunch into just this window with no main project window.
         .restorationBehavior(.disabled)

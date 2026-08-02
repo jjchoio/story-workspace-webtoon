@@ -17,8 +17,8 @@ struct LineRowView: View {
     let line: Line
     /// Lines edited by an accepted review this session (highlight + revertable).
     let changedLineIDs: Set<LineID>
-    /// The line currently selected for review, if any.
-    let reviewAnchor: StoryKit.Anchor?
+    /// The lines currently selected for review (multi-select).
+    let reviewAnchors: [StoryKit.Anchor]
     /// Toggle the review selection for a (cut, line, child?) — click to deselect.
     let onToggleReviewLine: (Int, Int, Int?) -> Void
     /// Revert a changed line to its pre-Accept text.
@@ -75,8 +75,7 @@ struct LineRowView: View {
     }
 
     private func isSelectedForReview(child: Int?) -> Bool {
-        guard let a = reviewAnchor else { return false }
-        return a.cut == cutNumber && a.line == number && a.child == child
+        reviewAnchors.contains { $0.cut == cutNumber && $0.line == number && $0.child == child }
     }
 
     private func row(number: String?, line: Line, isChild: Bool) -> some View {

@@ -46,7 +46,7 @@ public struct Reviewer: Equatable, Sendable, Codable {
 
 /// Where the card points, in per-cut addressing (D11). A stable Line-ID link
 /// (D7 anchoring for staleness) arrives with the write loop in Phase 3.
-public struct Anchor: Equatable, Sendable, Codable {
+public struct Anchor: Hashable, Sendable, Codable {
     public var episode: String     // "EP1"
     public var cut: Int
     public var line: Int

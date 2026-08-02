@@ -17,38 +17,51 @@ struct CardView: View {
     /// reverting the edit in Read Mode flips the badge back — not stuck on
     /// "accepted").
     var isAccepted: Bool = false
+    /// Whether the author declined this card (session state, owned by the deck).
+    var isDismissed: Bool = false
+    /// The card's position in the deck — picks its default color from the warm
+    /// gradient (card 0 is always the same color, card 1 the next, …).
+    var cardIndex: Int = 0
     /// Called when the author accepts an option. String is the author's typed
     /// line for an author-written option, nil otherwise.
     var onAccept: (CardOption, String?) -> Void = { _, _ in }
     var onRenew: () -> Void = {}
     var onDismiss: () -> Void = {}
+    /// When set, the card is that tall and its body scrolls — so a deck of cards
+    /// stays a consistent height regardless of content length.
+    var fixedHeight: CGFloat? = nil
 
     // TEMP visual sandbox (CardStyle.swift): drives the card's chrome.
     @Environment(CardStyleSettings.self) private var cardStyle
 
     @State private var selectedOptionID: String?
-    @State private var dismissed = false
     @State private var authoredText: String = ""
 
     init(
         card: Card,
         isAccepted: Bool = false,
+        isDismissed: Bool = false,
+        cardIndex: Int = 0,
+        fixedHeight: CGFloat? = nil,
         onAccept: @escaping (CardOption, String?) -> Void = { _, _ in },
         onRenew: @escaping () -> Void = {},
         onDismiss: @escaping () -> Void = {}
     ) {
         self.card = card
         self.isAccepted = isAccepted
+        self.isDismissed = isDismissed
+        self.cardIndex = cardIndex
+        self.fixedHeight = fixedHeight
         self.onAccept = onAccept
         self.onRenew = onRenew
         self.onDismiss = onDismiss
     }
 
-    /// The badge state: the model's accept/revert wins; dismiss is local; else
-    /// the card's own lifecycle status.
+    /// The badge state: accepted (model-driven) wins, then declined, else the
+    /// card's own lifecycle status.
     private var displayStatus: CardStatus {
         if isAccepted { return .accepted }
-        if dismissed { return .dismissed }
+        if isDismissed { return .dismissed }
         return card.status
     }
 
@@ -68,22 +81,25 @@ struct CardView: View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider()
-            content
+            if fixedHeight == nil {
+                content
+            } else {
+                ScrollView { content }
+            }
             Divider()
             CardFooterView(
-                hasSelection: selectedOptionID != nil,
                 canAccept: canAccept,
                 onAccept: {
                     guard let option = selectedOption else { return }
                     onAccept(option, option.kind == .authorWritten ? authoredText : nil)
-                    // The badge flips via isAccepted (model-driven), so revert
-                    // reflects here too.
+                    // The badge/color flip via isAccepted (model-driven), so
+                    // revert reflects here too.
                 },
                 onRenew: onRenew,
-                onDismiss: { dismissed = true; onDismiss() }
+                onDismiss: onDismiss
             )
         }
-        .frame(width: 460)
+        .frame(width: 460, height: fixedHeight, alignment: .top)
         .background(cardBackground)
         .overlay(cardBorder)
         .shadow(color: accentStyle == .outline ? accentColor.opacity(0.45) : .clear, radius: 4, y: 1)
@@ -91,7 +107,14 @@ struct CardView: View {
 
     // MARK: Visual treatment (TEMP sandbox — see CardStyle.swift)
 
-    private var accentColor: Color { cardStyle.color.color }
+    /// State drives the color: accepted → green, declined → grey, else this
+    /// card's default gradient tone. Revert (isAccepted back to false) returns to
+    /// the default color.
+    private var accentColor: Color {
+        if isAccepted { return CardAccent.accepted }
+        if isDismissed { return CardAccent.declined }
+        return CardAccent.defaultColor(index: cardIndex)
+    }
 
     private var accentStyle: CardAccentStyle { cardStyle.style }
 

@@ -51,10 +51,11 @@ final class ProjectViewModel {
     /// Independent of the loaded episode — it grounds every review.
     private(set) var northStar: NorthStar?
 
-    /// The line the author has selected in Read Mode to review, if any. Single
-    /// line this phase (multi-line selection is a later phase). Clears when the
-    /// open episode changes.
-    private(set) var reviewAnchor: Anchor?
+    /// The lines the author has selected in Read Mode to review. SCALE: a set of
+    /// explicit lines now (one card per line); a higher-level scope (cut /
+    /// episode) with AI-chosen cards is the next phase. Clears when the open
+    /// episode changes.
+    private(set) var reviewAnchors: [Anchor] = []
 
     /// Bumped each time the author presses Review, so the review window re-runs
     /// for the current selection even when it is already open.
@@ -97,7 +98,7 @@ final class ProjectViewModel {
                 name: name, episode: result.episode,
                 provenance: Provenance(action: "import", note: fileURL.lastPathComponent)
             )
-            reviewAnchor = nil
+            reviewAnchors = []
             changedLineIDs = []
             revertInfo = [:]
             state = try loadedState(store: store, id: id, url: url, warnings: result.warnings)
@@ -118,7 +119,7 @@ final class ProjectViewModel {
                 to: id, episode: result.episode,
                 provenance: Provenance(action: "reimport", note: fileURL.lastPathComponent)
             )
-            reviewAnchor = nil
+            reviewAnchors = []
             changedLineIDs = []
             revertInfo = [:]
             state = try loadedState(store: store, id: id, url: url, warnings: result.warnings)
@@ -146,7 +147,7 @@ final class ProjectViewModel {
         do {
             let url = try projectURL()
             let store = try FileProjectStore(rootDirectory: url)
-            reviewAnchor = nil // selection belongs to the previously open episode
+            reviewAnchors = [] // selection belongs to the previously open episode
             changedLineIDs = []
             revertInfo = [:]
             state = try loadedState(store: store, id: id, url: url, warnings: [])
@@ -161,14 +162,18 @@ final class ProjectViewModel {
     func toggleReviewLine(cut: Int, line: Int, child: Int?) {
         guard case .loaded(let loaded) = state else { return }
         let anchor = Anchor(episode: episodeLabel(loaded.documentName), cut: cut, line: line, child: child)
-        reviewAnchor = (reviewAnchor == anchor) ? nil : anchor
+        if let index = reviewAnchors.firstIndex(of: anchor) {
+            reviewAnchors.remove(at: index)
+        } else {
+            reviewAnchors.append(anchor)
+        }
     }
 
     /// Request a review of the current selection (bumps the trigger the review
     /// window watches). Starting a new review clears the prior session's change
     /// highlight and Revert affordances.
     func requestReview() {
-        guard reviewAnchor != nil else { return }
+        guard !reviewAnchors.isEmpty else { return }
         changedLineIDs = []
         revertInfo = [:]
         reviewRequestID += 1
@@ -267,7 +272,7 @@ final class ProjectViewModel {
         changedLineIDs = []
         revertInfo = [:]
         northStar = nil
-        reviewAnchor = nil
+        reviewAnchors = []
         state = .loading
         load()
     }

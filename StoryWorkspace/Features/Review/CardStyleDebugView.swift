@@ -20,12 +20,7 @@ struct CardStyleDebugView: View {
             }
             .pickerStyle(.segmented)
 
-            Picker("Accent", selection: $settings.color) {
-                ForEach(CardAccentColor.allCases) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
-
-            Text("Open the Review window alongside this to compare.")
+            Text("Colors are per-card (warm gradient) + green (accepted) / grey (declined). Open the Review window alongside this to compare.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

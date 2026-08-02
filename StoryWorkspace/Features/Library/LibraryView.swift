@@ -21,7 +21,7 @@ struct LibraryView: View {
     let onUpdateEpisode: (DocumentID, URL) -> Void
     let onImportNorthStar: (URL) -> Void
     let onMoveEpisodes: (IndexSet, Int) -> Void
-    let reviewAnchor: StoryKit.Anchor?
+    let reviewAnchors: [StoryKit.Anchor]
     let onToggleReviewLine: (Int, Int, Int?) -> Void
     let onRevert: (LineID) -> Void
 
@@ -87,7 +87,7 @@ struct LibraryView: View {
                 ReadModeView(
                     episode: loaded.episode, warnings: loaded.warnings,
                     changedLineIDs: changedLineIDs,
-                    reviewAnchor: reviewAnchor,
+                    reviewAnchors: reviewAnchors,
                     onToggleReviewLine: onToggleReviewLine,
                     onRevert: onRevert,
                     selection: $readerTarget

@@ -2,39 +2,39 @@
 //  CardFooterView.swift
 //  StoryWorkspace
 //
-//  Card actions. Renew asks the reviewer for a different approach (D12). The
-//  primary action is contextual: Accept once the author has picked an option,
-//  otherwise Dismiss. (Challenge returns with the full D12 loop.)
+//  Card actions. Renew asks the reviewer for a different approach (D12); Dismiss
+//  declines the card (author disposes, D3). Accept applies the selected option.
+//  Renew · Dismiss sit on the left; Accept is the prominent primary on the
+//  right, enabled once a choice is selected.
 //
 
 import SwiftUI
 
 struct CardFooterView: View {
-    let hasSelection: Bool
     let canAccept: Bool
     let onAccept: () -> Void
     let onRenew: () -> Void
     let onDismiss: () -> Void
 
     var body: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 14) {
             Button(action: onRenew) {
                 Label("Renew", systemImage: "arrow.triangle.2.circlepath")
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
 
+            Button(action: onDismiss) {
+                Label("Dismiss", systemImage: "hand.thumbsdown")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+
             Spacer()
 
-            if hasSelection {
-                Button("Accept", action: onAccept)
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!canAccept)
-            } else {
-                Button("Dismiss", action: onDismiss)
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.secondary)
-            }
+            Button("Accept", action: onAccept)
+                .buttonStyle(.borderedProminent)
+                .disabled(!canAccept)
         }
         .font(.callout)
         .padding(16)
