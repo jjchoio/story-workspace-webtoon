@@ -125,6 +125,56 @@ struct LLMReasonerTests {
         #expect(verdicts[Anchor(episode: "EP2", cut: 1, line: 3)] == nil)  // truncated card dropped
     }
 
+    @Test("New shape: blocks + alternatives → alternatives plus synthesized Keep/Write")
+    func parsesAlternativesShape() async throws {
+        let reply = """
+        {"cards":[{"target":"1.1",
+          "blocks":[
+            {"type":"quote","speaker":"Andie","content":"Order up, you trash-can!"},
+            {"type":"text","label":"Voice","content":"Reads hostile."}
+          ],
+          "alternatives":[
+            {"label":"Softer","detail":"Order up, careful now."},
+            {"label":"Sharper","detail":"Order up, scrap heap."}
+          ]}]}
+        """
+        let verdict = try #require(try await LLMReasoner(model: FakeLanguageModel(reply: reply))
+            .reason(context: context(), config: .dialogue)[anchor1])
+        #expect(verdict.options.map(\.kind) == [.alternative, .alternative, .keep, .authorWritten])
+        #expect(verdict.options.last?.detail == nil) // Write-your-own has no preview
+    }
+
+    @Test("Payload fixture: alternatives mis-placed inside blocks are reclassified")
+    func reclassifiesMisplacedAlternatives() async throws {
+        // The failing payload shape: rewrites emitted as type:"alternative" inside
+        // "blocks", with no "options"/"alternatives" array. Must still salvage.
+        let reply = """
+        {"cards":[{"target":"1.1","blocks":[
+          {"type":"quote","speaker":null,"content":"Caption: “A cup settles… and the surface stirs.”"},
+          {"type":"text","label":"Opening image","content":"The image is right but a touch neutral."},
+          {"type":"alternative","label":"Plainer, heavier","detail":"Caption: “A cup is set down. The surface remembers.”"},
+          {"type":"alternative","label":"Second take","detail":"Caption: “A cup settles. Something under it wakes.”"}
+        ]}]}
+        """
+        let verdict = try #require(try await LLMReasoner(model: FakeLanguageModel(reply: reply))
+            .reason(context: context(), config: .dialogue)[anchor1])
+        #expect(verdict.options.map(\.kind) == [.alternative, .alternative, .keep, .authorWritten])
+        #expect(verdict.blocks.count == 2) // rebuilt quote + the reasoning text
+    }
+
+    @Test("A card with zero alternatives is legal — Keep + Write only")
+    func zeroAlternativesIsLegal() async throws {
+        let reply = """
+        {"cards":[{"target":"1.1","blocks":[
+          {"type":"quote","speaker":"Andie","content":"Order up, you trash-can!"},
+          {"type":"text","label":"Fine","content":"Lands exactly as intended — no change needed."}
+        ]}]}
+        """
+        let verdict = try #require(try await LLMReasoner(model: FakeLanguageModel(reply: reply))
+            .reason(context: context(), config: .dialogue)[anchor1])
+        #expect(verdict.options.map(\.kind) == [.keep, .authorWritten])
+    }
+
     @Test("A card for an unknown target id is dropped, not matched")
     func dropsUnknownTarget() async throws {
         let stray = wellFormedReply.replacingOccurrences(of: "\"1.1\"", with: "\"9.9\"")

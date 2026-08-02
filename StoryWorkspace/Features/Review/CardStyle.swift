@@ -23,24 +23,33 @@ enum CardAccentStyle: String, CaseIterable, Identifiable {
 /// neighbors peeking. Selectable (like light/dark) so we can feel out the right
 /// balance of "one thing at a time" vs. a physical stack.
 enum DeckStyle: String, CaseIterable, Identifiable {
-    case focused   // modest peek, dim + scale (the default)
-    case physical  // bigger peek, less dim — feels like a stack
-    case minimal   // tiny sliver, strong dim — hardest "one thing at a time"
+    case focused   // wide peek, neighbors are empty shells (no content)
+    case physical  // neighbors blurred + 15% smaller, content visible
+    case minimal   // tiny sliver, strong dim
+    case simple    // plain scrollable strip — a big window shows every card
 
     var id: String { rawValue }
     var label: String { rawValue.capitalized }
 
+    enum Layout { case carousel, strip }
+    var layout: Layout { self == .simple ? .strip : .carousel }
+
     /// Points of each neighbor visible beside the centered card. (Clamped by the
-    /// window width — a wider window lets `physical` show even more.)
+    /// window width.) `focused` shows ~10% of the card's 460pt width.
     var peek: CGFloat {
-        switch self { case .focused: 40; case .physical: 160; case .minimal: 16 }
+        switch self { case .focused: 46; case .physical: 160; case .minimal: 16; case .simple: 0 }
     }
     var neighborOpacity: Double {
-        switch self { case .focused: 0.28; case .physical: 0.80; case .minimal: 0.12 }
+        switch self { case .minimal: 0.12; default: 1.0 }
     }
     var neighborScale: CGFloat {
-        switch self { case .focused: 0.86; case .physical: 0.98; case .minimal: 0.82 }
+        switch self { case .physical: 0.85; case .minimal: 0.82; case .focused, .simple: 1.0 }
     }
+    var neighborBlur: CGFloat {
+        switch self { case .physical: 5; default: 0 }
+    }
+    /// Focused shows neighbors as empty shells (frame only); the rest keep content.
+    var neighborShowsContent: Bool { self != .focused }
 }
 
 /// The card color palette. `default` colors come from `gradient` (a warm

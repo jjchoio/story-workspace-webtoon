@@ -77,6 +77,16 @@ struct DocumentEditTests {
         #expect(line.formattedReplacement("Andie considers the diver.") == "Andie considers the diver.")
     }
 
+    @Test("A rewrite of a line with an embedded lead-in keeps the lead-in")
+    func preservesEmbeddedLeadIn() {
+        // Multi-word attribution isn't parsed into `speaker`, so it lives in text.
+        let line = Line(id: LineID("l"), text: "Andie shouts: “Order up, TRASH CAN!”")
+        // Dialogue-only rewrite → the lead-in is re-attached.
+        #expect(line.formattedReplacement("“Order up, tin can.”") == "Andie shouts: “Order up, tin can.”")
+        // Rewrite that already includes the lead-in → no duplication.
+        #expect(line.formattedReplacement("Andie shouts: “Order up, tin can.”") == "Andie shouts: “Order up, tin can.”")
+    }
+
     @Test("line(at:) resolves parent and child anchors")
     func lineAtResolves() throws {
         let episode = episodeWithChild()

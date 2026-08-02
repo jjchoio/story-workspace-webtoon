@@ -30,6 +30,11 @@ struct CardView: View {
     /// When set, the card is that tall and its body scrolls — so a deck of cards
     /// stays a consistent height regardless of content length.
     var fixedHeight: CGFloat? = nil
+    /// Opacity of the inner content (header/body/footer); the framed chrome
+    /// (background + outline) stays fully visible. Fading to 0 turns the card
+    /// into an empty outlined shell — used for peeked neighbors — without
+    /// swapping the view, so focus transitions animate smoothly.
+    var contentOpacity: Double = 1
 
     // TEMP visual sandbox (CardStyle.swift): drives the card's chrome.
     @Environment(CardStyleSettings.self) private var cardStyle
@@ -43,6 +48,7 @@ struct CardView: View {
         isDismissed: Bool = false,
         cardIndex: Int = 0,
         fixedHeight: CGFloat? = nil,
+        contentOpacity: Double = 1,
         onAccept: @escaping (CardOption, String?) -> Void = { _, _ in },
         onRenew: @escaping () -> Void = {},
         onDismiss: @escaping () -> Void = {}
@@ -52,6 +58,7 @@ struct CardView: View {
         self.isDismissed = isDismissed
         self.cardIndex = cardIndex
         self.fixedHeight = fixedHeight
+        self.contentOpacity = contentOpacity
         self.onAccept = onAccept
         self.onRenew = onRenew
         self.onDismiss = onDismiss
@@ -78,6 +85,15 @@ struct CardView: View {
     }
 
     var body: some View {
+        filledBody
+            .opacity(contentOpacity) // fades content only; chrome stays below/over
+            .frame(width: 460, height: fixedHeight, alignment: .top)
+            .background(cardBackground)
+            .overlay(cardBorder)
+            .shadow(color: accentStyle == .outline ? accentColor.opacity(0.45) : .clear, radius: 4, y: 1)
+    }
+
+    private var filledBody: some View {
         VStack(alignment: .leading, spacing: 0) {
             header
             Divider()
@@ -99,10 +115,6 @@ struct CardView: View {
                 onDismiss: onDismiss
             )
         }
-        .frame(width: 460, height: fixedHeight, alignment: .top)
-        .background(cardBackground)
-        .overlay(cardBorder)
-        .shadow(color: accentStyle == .outline ? accentColor.opacity(0.45) : .clear, radius: 4, y: 1)
     }
 
     // MARK: Visual treatment (TEMP sandbox — see CardStyle.swift)

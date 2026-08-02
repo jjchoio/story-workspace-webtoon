@@ -64,6 +64,18 @@ public extension Line {
         if let pair = Line.surroundingQuotePair(text), Line.surroundingQuotePair(t) == nil {
             t = "\(pair.0)\(t)\(pair.1)"
         }
+        // Preserve an embedded lead-in (attribution/stage direction) when the
+        // line has NO parsed speaker field — e.g. `Andie shouts: "…"`. If the
+        // rewrite dropped that lead-in and is just the quoted dialogue, re-attach
+        // the original lead-in so accepting doesn't wipe "Andie shouts:".
+        if speaker == nil,
+           let leadRange = text.range(of: #"^.+?:\s+(?=["“])"#, options: .regularExpression) {
+            let lead = String(text[leadRange])
+            let startsWithQuote = t.first.map { "\"“".contains($0) } ?? false
+            if startsWithQuote, !t.hasPrefix(lead) {
+                t = lead + t
+            }
+        }
         return t
     }
 

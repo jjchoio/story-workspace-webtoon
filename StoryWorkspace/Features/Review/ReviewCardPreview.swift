@@ -24,6 +24,9 @@ struct ReviewCardPreview: View {
     @State private var focusedIndex = 0
     /// Ids of cards currently being renewed (per-card spinner).
     @State private var renewingIDs: Set<String> = []
+    /// Per-card renew outcome message (failure / no different take), shown on the
+    /// card so a renew never silently appears to do nothing.
+    @State private var renewNotices: [String: String] = [:]
     /// Ids of cards the author declined. SCALE: session-only for now — the
     /// durable "declined" record lands with card/session persistence (D13,
     /// PLANNING "Deliberately Deferred"). Cleared on a new review.
@@ -44,7 +47,7 @@ struct ReviewCardPreview: View {
             if reviewing && cards.isEmpty {
                 ProgressView("Reviewing \(model.reviewAnchors.count) line(s)…")
             } else if !cards.isEmpty {
-                carousel
+                if deckStyle.layout == .strip { strip } else { carousel }
             } else if let failure {
                 Text(failure)
                     .font(.callout)
@@ -76,10 +79,15 @@ struct ReviewCardPreview: View {
                 ZStack(alignment: .topLeading) {
                     HStack(spacing: spacing) {
                         ForEach(Array(cards.enumerated()), id: \.element.id) { index, item in
-                            cardView(item, index: index)
-                                .scaleEffect(index == focusedIndex ? 1 : deckStyle.neighborScale)
-                                .opacity(index == focusedIndex ? 1 : deckStyle.neighborOpacity)
-                                .allowsHitTesting(index == focusedIndex)
+                            let focused = index == focusedIndex
+                            // Focused: neighbors fade their content to an empty
+                            // outlined shell (same view → smooth, no blink).
+                            let hideContent = !focused && !deckStyle.neighborShowsContent
+                            cardView(item, index: index, contentOpacity: hideContent ? 0 : 1)
+                                .scaleEffect(focused ? 1 : deckStyle.neighborScale)
+                                .opacity(focused ? 1 : deckStyle.neighborOpacity)
+                                .blur(radius: focused ? 0 : deckStyle.neighborBlur)
+                                .allowsHitTesting(focused)
                         }
                     }
                     .offset(x: centeringOffset(index: focusedIndex, containerWidth: width, spacing: spacing))
@@ -100,14 +108,28 @@ struct ReviewCardPreview: View {
         .onKeyPress(.rightArrow) { move(1); return .handled }
     }
 
+    /// Simple: a plain scrollable strip of full cards — enlarge the window and
+    /// they all sit side by side. No focus/arrows.
+    private var strip: some View {
+        ScrollView(.horizontal) {
+            HStack(alignment: .top, spacing: 16) {
+                ForEach(Array(cards.enumerated()), id: \.element.id) { index, item in
+                    cardView(item, index: index)
+                }
+            }
+            .padding(20)
+        }
+    }
+
     @ViewBuilder
-    private func cardView(_ card: Card, index: Int) -> some View {
+    private func cardView(_ card: Card, index: Int, contentOpacity: Double = 1) -> some View {
         CardView(
             card: card,
             isAccepted: isAccepted(card),
             isDismissed: dismissedIDs.contains(card.id),
             cardIndex: index,
             fixedHeight: cardHeight,
+            contentOpacity: contentOpacity,
             onAccept: { option, authored in
                 dismissedIDs.remove(card.id) // accepting un-declines
                 // Keep has no edit to track, so record its green here.
@@ -127,6 +149,18 @@ struct ReviewCardPreview: View {
         .id("\(card.id)-\(card.version)") // re-init on renew
         .opacity(renewingIDs.contains(card.id) ? 0.5 : 1)
         .overlay { if renewingIDs.contains(card.id) { ProgressView() } }
+        .overlay(alignment: .bottom) {
+            if let notice = renewNotices[card.id] {
+                Text(notice)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(.thinMaterial, in: Capsule())
+                    .padding(.bottom, 12)
+                    .transition(.opacity)
+            }
+        }
     }
 
     private var controls: some View {
@@ -184,6 +218,7 @@ struct ReviewCardPreview: View {
         cards = []
         dismissedIDs = []
         keepAcceptedIDs = []
+        renewNotices = [:]
         focusedIndex = 0
         reviewing = true
         defer { reviewing = false }
@@ -208,20 +243,28 @@ struct ReviewCardPreview: View {
     private func renew(_ card: Card) async {
         let priors = card.options.filter { $0.kind == .alternative }.compactMap(\.detail)
         renewingIDs.insert(card.id)
+        renewNotices[card.id] = nil
         defer { renewingIDs.remove(card.id) }
         do {
             let request = ReviewRequest(subjects: [card.anchor], priorAlternatives: priors)
             let fresh = try await pipeline().run(
                 request, config: .dialogue, episode: episode, northStar: model.northStar?.text
             )
+            // Surface the outcome on the card itself — a masked full-screen error
+            // would just look like "renew did nothing."
             guard var replacement = fresh.first,
                   let index = cards.firstIndex(where: { $0.id == card.id })
-            else { return }
+            else {
+                renewNotices[card.id] = "No usable result — try Renew again."
+                return
+            }
             replacement.version = card.version + 1
             replacement.status = .renewed
             cards[index] = replacement
+        } catch ModelError.missingAPIKey {
+            renewNotices[card.id] = "Set ANTHROPIC_API_KEY, then try again."
         } catch {
-            failure = String(describing: error)
+            renewNotices[card.id] = "Renew failed: \(error)"
         }
     }
 }

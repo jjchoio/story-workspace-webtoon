@@ -65,9 +65,9 @@ public struct LLMReasoner: Reasoner {
             )
         )
 
-        // Parse the array; map each card back to its line by echoed id, and
-        // normalize its content against that line. SCALE: partial-safe — unknown
-        // ids and malformed cards are skipped, never failing the good ones.
+        // Parse the array; map each card to its line by echoed id and build the
+        // verdict around that line. SCALE: partial-safe — unknown ids and
+        // malformed cards are skipped, never failing the good ones.
         let cards = try VerdictParser.parseBatch(response.text)
         var result: [Anchor: ReviewerVerdict] = [:]
         for card in cards {
@@ -76,7 +76,7 @@ public struct LLMReasoner: Reasoner {
                 continue
             }
             if result[target.address] != nil { continue } // first card per line wins
-            result[target.address] = Self.normalize(card.verdict, for: target.line)
+            result[target.address] = Self.buildVerdict(card, for: target.line)
         }
         Self.log.info("batch parsed cards=\(cards.count, privacy: .public) matched=\(result.count, privacy: .public)")
         return result
@@ -97,19 +97,23 @@ public struct LLMReasoner: Reasoner {
         a.child.map { "\(a.cut).\(a.line).\($0)" } ?? "\(a.cut).\(a.line)"
     }
 
-    /// Rebuild a verdict's quote block from the reviewed line and format its
-    /// option details to that line's convention (speaker/quotes) — the model's
-    /// copy is unreliable. Kept identical to the single-line path, per target.
-    static func normalize(_ verdict: ReviewerVerdict, for line: Line) -> ReviewerVerdict {
-        let blocks = verdict.blocks.map { block -> CardBlock in
-            if case .quote = block { return .quote(speaker: line.speaker, content: line.text) }
-            return block
+    /// Assemble a card's verdict around its line: the quote block is always the
+    /// reviewed line (the model's copy is unreliable); the model's reasoning
+    /// (text) blocks are kept; options are the model's alternatives (formatted to
+    /// the line's convention) plus the app's constant Keep + Write-your-own. Zero
+    /// alternatives is legal — the card is then just Keep + Write.
+    static func buildVerdict(_ card: VerdictParser.ParsedCard, for line: Line) -> ReviewerVerdict {
+        var blocks: [CardBlock] = [.quote(speaker: line.speaker, content: line.text)]
+        blocks += card.blocks.filter { if case .text = $0 { return true } else { return false } }
+
+        var options = card.alternatives.enumerated().map { index, alt in
+            CardOption(
+                id: "opt-\(card.target)-alt\(index)", kind: .alternative,
+                label: alt.label, detail: line.formattedReplacement(alt.detail)
+            )
         }
-        let options = verdict.options.map { option -> CardOption in
-            guard let detail = option.detail else { return option }
-            return CardOption(id: option.id, kind: option.kind, label: option.label,
-                              detail: line.formattedReplacement(detail))
-        }
+        options.append(CardOption(id: "opt-\(card.target)-keep", kind: .keep, label: "Keep", detail: line.text))
+        options.append(CardOption(id: "opt-\(card.target)-write", kind: .authorWritten, label: "Write your own…"))
         return ReviewerVerdict(blocks: blocks, options: options)
     }
 
@@ -137,23 +141,24 @@ public struct LLMReasoner: Reasoner {
           "target": "<the id in brackets next to the » line, e.g. 4.1>",
           "blocks": [
             { "type": "quote", "speaker": "<name or null>", "content": "<the line text>" },
-            { "type": "text", "label": "<short heading or null>", "content": "<your reasoning>" }
+            { "type": "text", "label": "<short heading or null>", "content": "<your one-sentence reasoning>" }
           ],
-          "options": [
-            { "kind": "alternative", "label": "<short label>", "detail": "<rewritten line TEXT only>" },
-            { "kind": "alternative", "label": "<short label>", "detail": "<a DIFFERENT rewritten line>" },
-            { "kind": "keep", "label": "Keep", "detail": "<original line text, verbatim>" },
-            { "kind": "authorWritten", "label": "Write your own…" }
+          "alternatives": [
+            { "label": "<short label>", "detail": "<rewritten line TEXT only>" },
+            { "label": "<short label>", "detail": "<a DIFFERENT rewritten line>" }
           ]
         }
       ]
     }
-    Return EXACTLY ONE card per line marked » — no more, no fewer — and set each
-    card's "target" to that line's bracketed id. Give each card FOUR options in
-    this order: TWO distinct "alternative" rewrites, then one "keep", then one
-    "authorWritten" (omit its "detail"). A "detail"/quote "content" is the line's
+    Return EXACTLY ONE card per line marked » and set its "target" to that line's
+    bracketed id. "blocks" holds ONLY "quote"/"text" entries — the line, then your
+    reasoning; never put a rewrite in "blocks". "alternatives" holds your rewrites:
+    usually TWO distinct ones, but give ZERO ("alternatives": []) if the line
+    genuinely needs no change — silence is endorsement. Do NOT emit "keep" or
+    "write your own" — the app adds those. A "detail"/quote "content" is the line's
     TEXT ONLY — never prefix the speaker name (it is carried separately); keep the
-    original's punctuation.
+    original's punctuation, and if the line begins with a lead-in that is part of
+    it (a stage direction/attribution like `Andie shouts:`), keep that lead-in.
     """
 
     /// Render the whole episode as the user turn, with every target line marked
@@ -228,7 +233,12 @@ public struct LLMReasoner: Reasoner {
 enum VerdictParser {
     private static let log = Logger(subsystem: "StoryWorkspace.AI", category: "VerdictParser")
 
-    struct ParsedCard { let target: String; let verdict: ReviewerVerdict }
+    struct ParsedCard {
+        let target: String
+        let blocks: [CardBlock]      // quote/text the model gave (quote is rebuilt later)
+        let alternatives: [Alternative]
+    }
+    struct Alternative { let label: String; let detail: String }
 
     /// Parse `{ "cards": [ … ] }` into per-line verdicts, tolerantly. Rather than
     /// one strict decode (where a single junk block or a truncated tail sinks the
@@ -287,25 +297,43 @@ enum VerdictParser {
         return objects
     }
 
-    /// Decode one card object; nil if it lacks a target or has no usable block or
-    /// option after dropping malformed elements.
+    /// Decode one card object, reclassifying entries by their `type`/`kind` from
+    /// wherever the model put them (blocks / options / alternatives). Quote+text
+    /// become blocks; anything alternative-shaped becomes an alternative; keep /
+    /// write are ignored (the app synthesizes those). nil if it has no target or
+    /// nothing usable. Mis-placements are logged so we notice the model drifting.
     private static func decodeCard(_ object: String) -> ParsedCard? {
         guard let data = object.data(using: .utf8),
               let dto = try? JSONDecoder().decode(CardDTO.self, from: data),
               let target = dto.target
         else { return nil }
 
-        let blocks = dto.blocks.compactMap(\.value)
-        let optionDTOs = dto.options.compactMap(\.value)
-        guard !blocks.isEmpty, !optionDTOs.isEmpty else { return nil }
+        var blocks: [CardBlock] = []
+        var alternatives: [Alternative] = []
+        var misplacedAlts = 0
 
-        let options = optionDTOs.enumerated().map { index, option in
-            CardOption(
-                id: "opt-\(target)-\(index)-\(option.kind.rawValue)",
-                kind: option.kind, label: option.label, detail: option.detail
-            )
+        // blocks/options may include mis-typed alternatives; reclassify them.
+        for entry in (dto.blocks ?? []).compactMap(\.value) + (dto.options ?? []).compactMap(\.value) {
+            switch entry.role {
+            case .quote: blocks.append(.quote(speaker: entry.speaker, content: entry.content ?? ""))
+            case .text: blocks.append(.text(label: entry.label, content: entry.content ?? ""))
+            case .alternative:
+                if let alt = entry.asAlternative { alternatives.append(alt); misplacedAlts += 1 }
+            case .keepOrWrite: break // synthesized by the app
+            case .unknown:
+                log.error("dropping unrecognized entry (target=\(target, privacy: .public) type=\(entry.type ?? "nil", privacy: .public) kind=\(entry.kind ?? "nil", privacy: .public))")
+            }
         }
-        return ParsedCard(target: target, verdict: ReviewerVerdict(blocks: blocks, options: options))
+        // The dedicated "alternatives" array is the intended home.
+        for entry in (dto.alternatives ?? []).compactMap(\.value) {
+            if let alt = entry.asAlternative { alternatives.append(alt) }
+        }
+        if misplacedAlts > 0 {
+            log.error("reclassified \(misplacedAlts, privacy: .public) alternative(s) from blocks/options for target=\(target, privacy: .public)")
+        }
+
+        guard !blocks.isEmpty || !alternatives.isEmpty else { return nil }
+        return ParsedCard(target: target, blocks: blocks, alternatives: alternatives)
     }
 
     /// Wraps a decodable so a malformed array element decodes to nil (and is
@@ -317,12 +345,36 @@ enum VerdictParser {
 
     private struct CardDTO: Decodable {
         let target: String?
-        let blocks: [Lenient<CardBlock>]
-        let options: [Lenient<OptionDTO>]
+        // All optional so a missing array (or the model dumping everything in
+        // one of them) never fails the decode.
+        let blocks: [Lenient<Entry>]?
+        let options: [Lenient<Entry>]?
+        let alternatives: [Lenient<Entry>]?
     }
-    private struct OptionDTO: Decodable {
-        let kind: CardOption.Kind
-        let label: String
+
+    /// A flexible card entry: whatever the model emitted, classified by its
+    /// `type`/`kind` so a mis-placed option or an odd shape still lands right.
+    private struct Entry: Decodable {
+        let type: String?
+        let kind: String?
+        let label: String?
+        let speaker: String?
+        let content: String?
         let detail: String?
+
+        enum Role { case quote, text, alternative, keepOrWrite, unknown }
+        var role: Role {
+            switch (kind ?? type)?.lowercased() {
+            case "quote": return .quote
+            case "text": return .text
+            case "alternative": return .alternative
+            case "keep", "authorwritten", "author_written", "write", "writeyourown": return .keepOrWrite
+            default: return detail != nil ? .alternative : .unknown // label+detail ⇒ a rewrite
+            }
+        }
+        var asAlternative: Alternative? {
+            guard let detail, !detail.isEmpty else { return nil }
+            return Alternative(label: label ?? "Alternative", detail: detail)
+        }
     }
 }
