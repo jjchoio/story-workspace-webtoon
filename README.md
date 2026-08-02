@@ -14,6 +14,41 @@ cards** — not a chat. The AI proposes; the author decides.
   upload; the app owns review, patches, and history — it is not a writing tool.
 - **Cards, not chat.** Every AI response is a structured, persistent card.
 
+## How this is built
+
+```mermaid
+flowchart LR
+    A("<b>Design-partner sessions</b><br/>human + AI, one question at a time"):::human
+    B("<b>DECISIONS.md</b><br/>reasoning, alternatives, tradeoffs"):::artifact
+    C("<b>PLANNING.md</b><br/>phases with exit criteria"):::artifact
+    D("<b>Acceptance tests</b><br/>exit criteria as failing tests"):::ai
+    E("<b>Human verification gate</b><br/>author rules on ground truth"):::human
+    F("<b>Claude Code implementation</b><br/>governed by CLAUDE.md rules"):::ai
+    G("<b>Learnings</b><br/>surprises get reported, not hidden"):::artifact
+
+    A --> B --> C --> D --> E --> F --> G
+    G -->|loop| A
+
+    classDef human stroke:#8b5cf6,stroke-width:3px
+    classDef ai stroke:#22c55e,stroke-width:3px
+    classDef artifact stroke:#94a3b8,stroke-width:3px
+```
+
+*purple = human decisions · green = AI execution · gray = shared artifacts*
+
+**Built AI-natively, with the human holding the gates.** The system was designed
+through structured AI design-partner sessions — one question at a time, every
+decision logged with its reasoning, alternatives, and tradeoffs. Claude Code
+implements against acceptance tests derived from each phase's exit criteria,
+governed by working rules in CLAUDE.md — and nothing gets built until the author
+has ruled on ground truth.
+
+**Where to start reading:**
+
+- [D12 — discussion as card versioning](docs/DECISIONS.md): why there's no chat thread.
+- [D7 — per-suggestion staleness](docs/DECISIONS.md): how cards stay honest when the script changes.
+- [D16](docs/DECISIONS.md) + [PLANNING.md Phase 1 learnings](docs/PLANNING.md): the export-pipeline-is-part-of-the-format story.
+
 ## Status
 
 - **Phase 1 — data spine (complete):** script parser → canonical
@@ -38,7 +73,7 @@ docs/             Design docs (below).
 |-----|----------------|
 | [PRODUCT.md](docs/PRODUCT.md) | Vision, principles, goals, non-goals |
 | [TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md) | Architecture, document model, memory tiers |
-| [DECISIONS.md](docs/DECISIONS.md) | Architectural decision log (D1–D14) |
+| [DECISIONS.md](docs/DECISIONS.md) | Architectural decision log |
 | [PLANNING.md](docs/PLANNING.md) | Phased execution plan + exit criteria |
 
 `CLAUDE.md` holds the working conventions for AI-assisted development.
