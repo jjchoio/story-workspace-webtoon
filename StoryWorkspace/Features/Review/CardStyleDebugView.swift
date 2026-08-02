@@ -20,6 +20,11 @@ struct CardStyleDebugView: View {
             }
             .pickerStyle(.segmented)
 
+            Picker("Deck", selection: $settings.deck) {
+                ForEach(DeckStyle.allCases) { Text($0.label).tag($0) }
+            }
+            .pickerStyle(.segmented)
+
             Text("Colors are per-card (warm gradient) + green (accepted) / grey (declined). Open the Review window alongside this to compare.")
                 .font(.caption)
                 .foregroundStyle(.secondary)

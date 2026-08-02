@@ -16,9 +16,12 @@ struct ReviewCardPreview: View {
     let episode: Episode
 
     @Environment(ProjectViewModel.self) private var model
+    @Environment(CardStyleSettings.self) private var styleSettings
     @State private var cards: [Card] = []
     @State private var failure: String?
     @State private var reviewing = false
+    /// The centered card in the carousel.
+    @State private var focusedIndex = 0
     /// Ids of cards currently being renewed (per-card spinner).
     @State private var renewingIDs: Set<String> = []
     /// Ids of cards the author declined. SCALE: session-only for now — the
@@ -32,13 +35,16 @@ struct ReviewCardPreview: View {
     @State private var keepAcceptedIDs: Set<String> = []
 
     private let cardHeight: CGFloat = 520
+    private let cardWidth: CGFloat = 460
+
+    private var deckStyle: DeckStyle { styleSettings.deck }
 
     var body: some View {
         Group {
             if reviewing && cards.isEmpty {
                 ProgressView("Reviewing \(model.reviewAnchors.count) line(s)…")
             } else if !cards.isEmpty {
-                deck
+                carousel
             } else if let failure {
                 Text(failure)
                     .font(.callout)
@@ -57,39 +63,96 @@ struct ReviewCardPreview: View {
         .task(id: model.reviewRequestID) { await runReview() }
     }
 
-    private var deck: some View {
-        ScrollView(.horizontal) {
-            HStack(alignment: .top, spacing: 16) {
-                ForEach(Array(cards.enumerated()), id: \.element.id) { index, card in
-                    CardView(
-                        card: card,
-                        isAccepted: isAccepted(card),
-                        isDismissed: dismissedIDs.contains(card.id),
-                        cardIndex: index,
-                        fixedHeight: cardHeight,
-                        onAccept: { option, authored in
-                            dismissedIDs.remove(card.id) // accepting un-declines
-                            // Keep has no edit to track, so record its green here.
-                            if option.kind == .keep { keepAcceptedIDs.insert(card.id) }
-                            else { keepAcceptedIDs.remove(card.id) }
-                            model.accept(
-                                option: option, anchor: card.anchor,
-                                reviewer: card.reviewer.name, authoredText: authored
-                            )
-                        },
-                        onRenew: { Task { await renew(card) } },
-                        onDismiss: {
-                            dismissedIDs.insert(card.id)
-                            keepAcceptedIDs.remove(card.id) // declining un-accepts a Keep
+    /// A focused carousel: the centered card is full-size and interactive; the
+    /// neighbors peek (scaled + dimmed) so you know there's more without being
+    /// able to read them — "one thing at a time" (D17). Arrows / ← → flip; the
+    /// controls sit 100px below the card. The peek/dim is driven by DeckStyle so
+    /// we can A/B the feel from the debug window.
+    private var carousel: some View {
+        VStack(spacing: 0) {
+            GeometryReader { geo in
+                let width = geo.size.width
+                let spacing = max(12, (width - cardWidth) / 2 - deckStyle.peek)
+                ZStack(alignment: .topLeading) {
+                    HStack(spacing: spacing) {
+                        ForEach(Array(cards.enumerated()), id: \.element.id) { index, item in
+                            cardView(item, index: index)
+                                .scaleEffect(index == focusedIndex ? 1 : deckStyle.neighborScale)
+                                .opacity(index == focusedIndex ? 1 : deckStyle.neighborOpacity)
+                                .allowsHitTesting(index == focusedIndex)
                         }
-                    )
-                    .id("\(card.id)-\(card.version)") // re-init on renew
-                    .opacity(renewingIDs.contains(card.id) ? 0.5 : 1)
-                    .overlay { if renewingIDs.contains(card.id) { ProgressView() } }
+                    }
+                    .offset(x: centeringOffset(index: focusedIndex, containerWidth: width, spacing: spacing))
                 }
+                .frame(width: width, height: cardHeight, alignment: .topLeading)
+                .clipped()
+                .animation(.snappy(duration: 0.28), value: focusedIndex)
             }
-            .padding(4)
+            .frame(height: cardHeight)
+
+            Spacer(minLength: 100)
+            controls
+                .padding(.bottom, 8)
         }
+        .focusable()
+        .focusEffectDisabled() // no blue focus ring around the deck
+        .onKeyPress(.leftArrow) { move(-1); return .handled }
+        .onKeyPress(.rightArrow) { move(1); return .handled }
+    }
+
+    @ViewBuilder
+    private func cardView(_ card: Card, index: Int) -> some View {
+        CardView(
+            card: card,
+            isAccepted: isAccepted(card),
+            isDismissed: dismissedIDs.contains(card.id),
+            cardIndex: index,
+            fixedHeight: cardHeight,
+            onAccept: { option, authored in
+                dismissedIDs.remove(card.id) // accepting un-declines
+                // Keep has no edit to track, so record its green here.
+                if option.kind == .keep { keepAcceptedIDs.insert(card.id) }
+                else { keepAcceptedIDs.remove(card.id) }
+                model.accept(
+                    option: option, anchor: card.anchor,
+                    reviewer: card.reviewer.name, authoredText: authored
+                )
+            },
+            onRenew: { Task { await renew(card) } },
+            onDismiss: {
+                dismissedIDs.insert(card.id)
+                keepAcceptedIDs.remove(card.id) // declining un-accepts a Keep
+            }
+        )
+        .id("\(card.id)-\(card.version)") // re-init on renew
+        .opacity(renewingIDs.contains(card.id) ? 0.5 : 1)
+        .overlay { if renewingIDs.contains(card.id) { ProgressView() } }
+    }
+
+    private var controls: some View {
+        HStack(spacing: 24) {
+            Button { move(-1) } label: { Image(systemName: "chevron.left.circle.fill") }
+                .disabled(focusedIndex <= 0)
+            Text("\(min(focusedIndex + 1, cards.count)) of \(cards.count)")
+                .font(.callout.monospacedDigit())
+                .foregroundStyle(.secondary)
+                .frame(minWidth: 64)
+            Button { move(1) } label: { Image(systemName: "chevron.right.circle.fill") }
+                .disabled(focusedIndex >= cards.count - 1)
+        }
+        .buttonStyle(.plain)
+        .font(.largeTitle)
+        .foregroundStyle(.secondary)
+    }
+
+    /// Shift the strip so `index`'s card centers in the container.
+    private func centeringOffset(index: Int, containerWidth: CGFloat, spacing: CGFloat) -> CGFloat {
+        let step = cardWidth + spacing
+        return containerWidth / 2 - (CGFloat(index) * step + cardWidth / 2)
+    }
+
+    private func move(_ delta: Int) {
+        focusedIndex = min(max(focusedIndex + delta, 0), max(0, cards.count - 1))
     }
 
     /// True while the reviewed line is still an accepted change (in the model's
@@ -121,6 +184,7 @@ struct ReviewCardPreview: View {
         cards = []
         dismissedIDs = []
         keepAcceptedIDs = []
+        focusedIndex = 0
         reviewing = true
         defer { reviewing = false }
         do {

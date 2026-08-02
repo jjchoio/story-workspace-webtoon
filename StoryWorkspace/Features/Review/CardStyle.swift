@@ -19,6 +19,30 @@ enum CardAccentStyle: String, CaseIterable, Identifiable {
     var label: String { rawValue.capitalized }
 }
 
+/// How the review deck presents itself — a focused single card with the
+/// neighbors peeking. Selectable (like light/dark) so we can feel out the right
+/// balance of "one thing at a time" vs. a physical stack.
+enum DeckStyle: String, CaseIterable, Identifiable {
+    case focused   // modest peek, dim + scale (the default)
+    case physical  // bigger peek, less dim — feels like a stack
+    case minimal   // tiny sliver, strong dim — hardest "one thing at a time"
+
+    var id: String { rawValue }
+    var label: String { rawValue.capitalized }
+
+    /// Points of each neighbor visible beside the centered card. (Clamped by the
+    /// window width — a wider window lets `physical` show even more.)
+    var peek: CGFloat {
+        switch self { case .focused: 40; case .physical: 160; case .minimal: 16 }
+    }
+    var neighborOpacity: Double {
+        switch self { case .focused: 0.28; case .physical: 0.80; case .minimal: 0.12 }
+    }
+    var neighborScale: CGFloat {
+        switch self { case .focused: 0.86; case .physical: 0.98; case .minimal: 0.82 }
+    }
+}
+
 /// The card color palette. `default` colors come from `gradient` (a warm
 /// coffee→amber→red→brown family); state colors are shared across cards.
 enum CardAccent {
@@ -51,4 +75,5 @@ enum CardAccent {
 @Observable
 final class CardStyleSettings {
     var style: CardAccentStyle = .outline
+    var deck: DeckStyle = .focused
 }
