@@ -26,24 +26,24 @@ enum DeckStyle: String, CaseIterable, Identifiable {
     case focused   // wide peek, neighbors are empty shells (no content)
     case physical  // neighbors blurred + 15% smaller, content visible
     case minimal   // tiny sliver, strong dim
-    case simple    // plain scrollable strip — a big window shows every card
+    case grid      // wrapping grid — see every card at once, square-ish
 
     var id: String { rawValue }
     var label: String { rawValue.capitalized }
 
-    enum Layout { case carousel, strip }
-    var layout: Layout { self == .simple ? .strip : .carousel }
+    enum Layout { case carousel, grid }
+    var layout: Layout { self == .grid ? .grid : .carousel }
 
     /// Points of each neighbor visible beside the centered card. (Clamped by the
     /// window width.) `focused` shows ~10% of the card's 460pt width.
     var peek: CGFloat {
-        switch self { case .focused: 46; case .physical: 160; case .minimal: 16; case .simple: 0 }
+        switch self { case .focused: 46; case .physical: 160; case .minimal: 16; case .grid: 0 }
     }
     var neighborOpacity: Double {
         switch self { case .minimal: 0.12; default: 1.0 }
     }
     var neighborScale: CGFloat {
-        switch self { case .physical: 0.85; case .minimal: 0.82; case .focused, .simple: 1.0 }
+        switch self { case .physical: 0.85; case .minimal: 0.82; case .focused, .grid: 1.0 }
     }
     var neighborBlur: CGFloat {
         switch self { case .physical: 5; default: 0 }

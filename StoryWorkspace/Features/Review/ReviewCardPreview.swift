@@ -47,7 +47,7 @@ struct ReviewCardPreview: View {
             if reviewing && cards.isEmpty {
                 ProgressView("Reviewing \(model.reviewAnchors.count) line(s)…")
             } else if !cards.isEmpty {
-                if deckStyle.layout == .strip { strip } else { carousel }
+                if deckStyle.layout == .grid { grid } else { carousel }
             } else if let failure {
                 Text(failure)
                     .font(.callout)
@@ -108,11 +108,15 @@ struct ReviewCardPreview: View {
         .onKeyPress(.rightArrow) { move(1); return .handled }
     }
 
-    /// Simple: a plain scrollable strip of full cards — enlarge the window and
-    /// they all sit side by side. No focus/arrows.
-    private var strip: some View {
-        ScrollView(.horizontal) {
-            HStack(alignment: .top, spacing: 16) {
+    /// Grid: full cards wrapping into rows and columns (adaptive to width), so
+    /// the whole deck reads as a square-ish block instead of one long row. No
+    /// focus/arrows; scrolls vertically.
+    private var grid: some View {
+        ScrollView(.vertical) {
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: cardWidth), spacing: 16, alignment: .top)],
+                alignment: .center, spacing: 16
+            ) {
                 ForEach(Array(cards.enumerated()), id: \.element.id) { index, item in
                     cardView(item, index: index)
                 }

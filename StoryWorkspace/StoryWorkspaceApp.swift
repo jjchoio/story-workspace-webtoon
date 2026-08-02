@@ -30,9 +30,9 @@ struct StoryWorkspaceApp: App {
                 .environment(model)
                 .environment(cardStyle)
         }
-        // Fits one full card (460×520) plus a peek of the neighbors and the
-        // controls ~100px below; user-resizable.
-        .defaultSize(width: 720, height: 720)
+        // Squarish: fits ~2 columns of the Grid deck; also fits one carousel
+        // card + peek. User-resizable.
+        .defaultSize(width: 1000, height: 820)
         .defaultPosition(.trailing)
         // Don't let the aux windows restore on launch — otherwise macOS can
         // relaunch into just this window with no main project window.
