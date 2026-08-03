@@ -19,21 +19,26 @@ macOS app (SwiftUI). Two top-level areas: **Project Data** and **LLM Service**.
 Canonical, panel-aware tree (webtoon scroll format):
 
 ```
-Episode
-└── Cut (title, scene description)
-    └── Line (stable ID, speaker, text)
+Episode (metadata: goal?, …)
+└── Cut (title, description?, …)
+    └── Line (stable ID, speaker?, size?, text)
+        └── Line (child; exactly one level)
 ```
 
-- **Upload is import.** Text/PDF is parsed into this canonical form. The
-  supported input contract is the project's markdown convention; parsing is
-  tolerant, arbitrary formats are out of scope for v1.
-- **IDs are canonical; numbers are derived.** The parser ignores authored
-  numbering (using it only as a matching hint). The app renders and exports
-  per-cut addressing (`EP / Cut / Line`), recomputed from document order.
-  Reordering cuts or inserting lines never invalidates anchors.
-- Structure enables **structural retrieval** ("all Lines where speaker =
-  Andie") and **computed stats** for the Flow reviewer (cuts per episode,
-  line density) without embeddings.
+- One level of nesting: deeper authored nesting is flattened to one
+  level on import (D15). Nested staleness: an edit to a child stales
+  suggestions on the child and its parent; an edit to a parent stales
+  the parent's only.
+- `speaker` is parsed from the "Speaker:" prefix (nil when absent) and
+  is the Dialogue reviewer's structural retrieval key.
+- `size` (S/M/L) is parsed from explicit delimited codes — accepted
+  input (S)/(M)/(L) and <S>/<M>/<L>, canonical export (S)/(M)/(L) —
+  stripped from text (D16). Bare glued codes produce an import warning,
+  never a parse.
+- Input contract and Ulysses authoring guidance live in FORMAT.md. The
+  export pipeline is part of the format's spec.
+- Reviewer prompts are structured as three separable blocks: identity,
+  contract (card schema), calibration (thoroughness, D18).
 
 ## Write Paths & History
 
@@ -71,6 +76,13 @@ log.
   different path." After repeated rejection, reviewers defer (honestly, not
   sycophantically). All versions persist under the session ID with the
   causing action recorded.
+  
+  - **Review Mode (D17):** a presentation lens, not a generation loop.
+  One upfront holistic pass per reviewer produces the full suggestion
+  list; the walk reveals suggestions one at a time in document order.
+  Accepts apply immediately; freshness is handled by anchor-overlap
+  staleness (D7) with auto-triggered scoped renewal (D12) only when the
+  walk reaches a suggestion an earlier accept actually staled.
 
 ## Reviewer Architecture
 

@@ -13,6 +13,13 @@ import StoryKit
 struct ReadModeView: View {
     let episode: Episode
     let warnings: [ParseWarning]
+    let changedLineIDs: Set<LineID>
+    /// The lines currently selected for review (highlighted).
+    let reviewAnchors: [StoryKit.Anchor]
+    /// Toggle the review selection for a (cut, line, child?) — click to deselect.
+    let onToggleReviewLine: (Int, Int, Int?) -> Void
+    /// Revert a changed line to its pre-Accept text.
+    let onRevert: (LineID) -> Void
     @Binding var selection: ReaderTarget?
 
     /// One scroll-sync update we triggered ourselves, so the jump handler
@@ -50,7 +57,14 @@ struct ReadModeView: View {
 
                         ForEach(Array(episode.cuts.enumerated()), id: \.offset) { entry in
                             Section {
-                                CutSectionView(cut: entry.element)
+                                CutSectionView(
+                                    cut: entry.element,
+                                    cutNumber: entry.offset + 1,
+                                    changedLineIDs: changedLineIDs,
+                                    reviewAnchors: reviewAnchors,
+                                    onToggleReviewLine: onToggleReviewLine,
+                                    onRevert: onRevert
+                                )
                             } header: {
                                 CutHeaderView(number: entry.offset + 1, title: entry.element.title)
                                     .background(topReporter(index: entry.offset))

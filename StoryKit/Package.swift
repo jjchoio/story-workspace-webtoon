@@ -9,7 +9,12 @@ let package = Package(
     ],
     targets: [
         // All logic lives here so it is testable via `swift test` (CLAUDE.md).
-        .target(name: "StoryKit"),
+        // Reviewer role prompts are authored as Markdown resources, loaded via
+        // Bundle.module (see Reviewers/Prompt.swift).
+        .target(
+            name: "StoryKit",
+            resources: [.process("Reviewers/Prompts")]
+        ),
         // Uses Swift Testing (bundled with the toolchain), NOT XCTest.
         .testTarget(
             name: "StoryKitTests",

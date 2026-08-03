@@ -10,6 +10,11 @@ import StoryKit
 
 struct CutSectionView: View {
     let cut: Cut
+    let cutNumber: Int
+    let changedLineIDs: Set<LineID>
+    let reviewAnchors: [StoryKit.Anchor]
+    let onToggleReviewLine: (Int, Int, Int?) -> Void
+    let onRevert: (LineID) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
@@ -21,7 +26,15 @@ struct CutSectionView: View {
                     .padding(.bottom, 2)
             }
             ForEach(Array(cut.lines.enumerated()), id: \.offset) { entry in
-                LineRowView(number: entry.offset + 1, line: entry.element)
+                LineRowView(
+                    cutNumber: cutNumber,
+                    number: entry.offset + 1,
+                    line: entry.element,
+                    changedLineIDs: changedLineIDs,
+                    reviewAnchors: reviewAnchors,
+                    onToggleReviewLine: onToggleReviewLine,
+                    onRevert: onRevert
+                )
             }
         }
         .padding(.horizontal, 28)

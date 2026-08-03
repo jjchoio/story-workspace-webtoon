@@ -11,7 +11,9 @@ import StoryKit
 import UniformTypeIdentifiers
 
 struct RootView: View {
-    @State private var model = ProjectViewModel()
+    // Shared across the reader and the floating review-card window (owned by the App).
+    @Environment(ProjectViewModel.self) private var model
+    @Environment(\.openWindow) private var openWindow
     @State private var importing = false
     @State private var showingSettings = false
 
@@ -26,7 +28,7 @@ struct RootView: View {
                 allowsMultipleSelection: false
             ) { result in
                 if case .success(let urls) = result, let url = urls.first {
-                    model.importEpisode(from: url)
+                    model.addEpisode(from: url)
                 }
             }
             .toolbar { toolbar }
@@ -51,14 +53,25 @@ struct RootView: View {
             )
 
         case .loaded(let loaded):
-            EpisodeReaderView(
-                documentName: loaded.documentName,
-                version: loaded.version,
-                importedAt: loaded.importedAt,
-                episode: loaded.episode,
-                warnings: loaded.warnings
+            LibraryView(
+                loaded: loaded,
+                northStar: model.northStar,
+                changedLineIDs: model.changedLineIDs,
+                onSelectEpisode: { model.selectEpisode($0) },
+                onAddEpisode: { model.addEpisode(from: $0) },
+                onUpdateEpisode: { model.updateEpisode($0, from: $1) },
+                onImportNorthStar: { model.importNorthStar(from: $0) },
+                onMoveEpisodes: { model.moveEpisodes(fromOffsets: $0, toOffset: $1) },
+                reviewAnchors: model.reviewAnchors,
+                onToggleReviewLine: { model.toggleReviewLine(cut: $0, line: $1, child: $2) },
+                onRevert: { model.revert(lineID: $0) }
             )
         }
+    }
+
+    private var reviewButtonTitle: String {
+        let n = model.reviewAnchors.count
+        return n > 1 ? "Review \(n) Lines" : "Review Line"
     }
 
     // MARK: Toolbar
@@ -67,16 +80,28 @@ struct RootView: View {
     private var toolbar: some ToolbarContent {
         if case .loaded(let loaded) = model.state {
             ToolbarItem(placement: .primaryAction) {
+                Button {
+                    model.requestReview()
+                    openWindow(id: "review-card")
+                } label: {
+                    Label(reviewButtonTitle, systemImage: "sparkles")
+                }
+                .disabled(model.reviewAnchors.isEmpty)
+                .help(model.reviewAnchors.isEmpty ? "Select one or more lines in Read Mode to review" : "Review the selected line(s)")
+            }
+            // TEMP: open the card-style A/B debug window (drop with CardStyle.swift).
+            ToolbarItem(placement: .primaryAction) {
+                Button { openWindow(id: "card-style-debug") } label: {
+                    Label("Card Style", systemImage: "paintpalette")
+                }
+            }
+            ToolbarItem(placement: .primaryAction) {
                 Button { showingSettings.toggle() } label: {
                     Label("Settings", systemImage: "gearshape")
                 }
                 .popover(isPresented: $showingSettings, arrowEdge: .bottom) {
                     SettingsPopover(
                         storePath: loaded.storePath,
-                        onImport: {
-                            showingSettings = false
-                            importing = true
-                        },
                         onReset: {
                             showingSettings = false
                             model.resetStore()

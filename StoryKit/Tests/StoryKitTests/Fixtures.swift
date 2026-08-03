@@ -45,4 +45,17 @@ enum Fixtures {
     /// Uncleaned export retaining stray bracket residue ("()", "([)"), used to
     /// exercise the "stray markup residue" warning path.
     static func strayMarkupSample() throws -> String { try text("EP2-size-revised.txt") }
+
+    /// Raw bytes of a fixture (for JSON decoding).
+    static func data(_ fileName: String) throws -> Data {
+        let url = directory.appendingPathComponent(fileName)
+        do {
+            return try Data(contentsOf: url)
+        } catch {
+            throw FixtureError.unreadable(url.path)
+        }
+    }
+
+    /// Hand-authored sample review card (the Dialogue reviewer card).
+    static func sampleCardData() throws -> Data { try data("sample-card.json") }
 }

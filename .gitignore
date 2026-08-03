@@ -3,6 +3,10 @@
 xcuserdata/
 *.xcuserstate
 
+## Shared schemes — kept local: Xcode stores Run-scheme environment variables
+## (e.g. ANTHROPIC_API_KEY) in them, which must never be committed.
+*.xcodeproj/xcshareddata/xcschemes/*.xcscheme
+
 ## Build generated
 build/
 DerivedData/

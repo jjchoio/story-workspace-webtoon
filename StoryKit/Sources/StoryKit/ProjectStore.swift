@@ -72,9 +72,23 @@ public protocol ProjectStore {
     /// The latest stored episode for a document, or nil if unknown/empty.
     func latestEpisode(of id: DocumentID) throws -> Episode?
 
-    /// All documents in the project.
+    /// All documents in the project, in the author's saved order (falling back
+    /// to import date for any not yet ordered).
     func documents() throws -> [StoredDocument]
+
+    /// Persist an explicit document ordering (e.g. after a drag-reorder). IDs
+    /// not listed sort after the listed ones, by import date.
+    func setDocumentOrder(_ ids: [DocumentID]) throws
 
     /// The full append-only history, in write order.
     func history() throws -> [HistoryEntry]
+
+    /// The project's North Star (shared reviewer context), or nil if none has
+    /// been imported.
+    func loadNorthStar() throws -> NorthStar?
+
+    /// Save (or replace) the project's North Star. Overwrites in place — unlike
+    /// documents, the North Star is not version-tracked; the author versions it
+    /// in their own tool and re-imports.
+    func saveNorthStar(_ northStar: NorthStar) throws
 }
