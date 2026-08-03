@@ -38,8 +38,14 @@ has ruled on ground truth.
 - **Phase 1 — data spine (complete):** script parser → canonical
   `Episode → Cut → Line` model → file-based persistence → Read mode with a
   sidebar outline.
-- **Phase 2 — one reviewer through the pipe (in progress):** card schema +
-  schema-driven renderer first (against a sample card), then the live pipeline.
+- **Phase 2 — one reviewer through the pipe (delivered):** the Dialogue
+  reviewer runs end to end against a live model; a multi-line selection is
+  reviewed in one batched call that returns a deck of schema-driven cards; a
+  project North Star grounds every review; and an early write-loop slice
+  landed — Accept patches the script (a new immutable version), Revert
+  restores it, Renew asks for a different-but-honest take.
+- **Phase 3 — the write loop (next):** per-suggestion staleness, card/session
+  persistence + history, and a "one at a time" Review Mode walk.
 
 ## Layout
 
@@ -59,6 +65,7 @@ docs/             Design docs (below).
 | [TECHNICAL_DESIGN.md](docs/TECHNICAL_DESIGN.md) | Architecture, document model, memory tiers |
 | [DECISIONS.md](docs/DECISIONS.md) | Architectural decision log |
 | [PLANNING.md](docs/PLANNING.md) | Phased execution plan + exit criteria |
+| [FORMAT.md](docs/FORMAT.md) | Supported script input format (+ Ulysses export) |
 
 `CLAUDE.md` holds the working conventions for AI-assisted development.
 
@@ -72,5 +79,6 @@ cd StoryKit && swift test
 open StoryWorkspace.xcodeproj   # then ⌘R
 ```
 
-Requires macOS 14+ and a recent Xcode. State/UI use the Observation framework;
-tests use Swift Testing.
+Requires macOS 15.4+ and a recent Xcode. A live review needs an
+`ANTHROPIC_API_KEY` in the Run scheme's environment. State/UI use the
+Observation framework; tests use Swift Testing.

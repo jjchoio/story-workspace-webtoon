@@ -403,3 +403,38 @@ slider (false precision).
 **Tradeoffs.** A Light review finding little is good news only if the
 user knows it was Light — cards should eventually display the
 thoroughness that produced them (cheap metadata, real trust dividend).
+
+---
+
+## D19. Batch review, minimal contract, salvage-tolerant parsing
+
+**Decision.** A review is ONE model call over the selected lines. The reviewer
+returns `{ cards: [ { target, blocks, alternatives } ] }` — for each line, its
+reasoning blocks (`quote`/`text`) and 0–2 rewrite `alternatives`. Each card is
+matched to its line by the model-echoed `target` id (`cut.line[.child]`), not by
+position. The app **synthesizes the constant options** (Keep + Write-your-own);
+the model never emits them. Zero alternatives is legal — silence is endorsement.
+Parsing is **salvage-based**: entries are classified by `type`/`kind` wherever
+the model placed them (a rewrite mis-dropped into `blocks` is reclassified), a
+truncated final card is discarded, junk elements are dropped — each logged — so
+one malformed card never sinks the deck.
+
+**Reasoning.** The episode + North Star are the expensive context; sending them
+once per selection instead of per line saves ~N× input tokens and N−1 round
+trips. Shrinking the model's job to the *variable* part (reasoning +
+alternatives) removes whole classes of malformed output — it can't mis-type the
+constant actions. Id-based anchoring is the load-bearing seam: it lets a future
+reviewer decide *which* lines in a broader scope deserve a card (D17) as a
+prompt change, not a plumbing change. Tolerant parsing accepts the empirical
+truth that instructed-JSON output drifts.
+
+**Alternatives.** A call per line (N× context, N round trips); position-based
+card↔line mapping (fragile to omission/reorder); a single strict decode (one
+bad element throws away the whole batch); the model emitting Keep/Write itself
+(more surface to malform).
+
+**Tradeoffs.** Per-line depth can be slightly shallower in a large batch, and
+output tokens grow with the line count (capped, with a logged token estimate +
+warning). Streaming the reply is deferred. Structured-output/JSON-schema
+enforcement (Anthropic-specific) is a future hardening option, kept out for now
+to preserve the provider-agnostic seam (D8).
