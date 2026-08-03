@@ -1,5 +1,7 @@
 # Story Workspace
 
+![A row of review cards from the Dialogue reviewer — each anchored to one line, proposing rewrites alongside Keep and Write-your-own, with Renew / Dismiss / Accept.](docs/assets/review-deck.png)
+
 A macOS app that helps webtoon authors review and refine long-form scripts with
 specialized AI reviewers. Findings arrive as persistent, interactive **review
 cards** — not a chat. The AI proposes; the author decides.
