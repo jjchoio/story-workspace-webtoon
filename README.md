@@ -16,34 +16,7 @@ cards** — not a chat. The AI proposes; the author decides.
 
 ## How this is built
 
-```mermaid
-flowchart TB
-    subgraph top [" "]
-        direction LR
-        A("<b>Design-partner sessions</b><br/>human + AI, one question at a time"):::human
-        B("<b>DECISIONS.md</b><br/>reasoning, alternatives, tradeoffs"):::artifact
-        C("<b>PLANNING.md</b><br/>phases with exit criteria"):::artifact
-        A --> B --> C
-    end
-    subgraph bottom [" "]
-        direction RL
-        E("<b>Human verification gate</b><br/>author rules on ground truth"):::human
-        F("<b>Claude Code implementation</b><br/>governed by CLAUDE.md rules"):::ai
-        G("<b>Learnings</b><br/>surprises get reported, not hidden"):::artifact
-        E --> F --> G
-    end
-    D("<b>Acceptance tests</b><br/>exit criteria as failing tests"):::ai
-    C --> D --> E
-    G -->|loop| A
-
-    classDef human stroke:#8b5cf6,stroke-width:3px
-    classDef ai stroke:#22c55e,stroke-width:3px
-    classDef artifact stroke:#94a3b8,stroke-width:3px
-    style top fill:none,stroke:none
-    style bottom fill:none,stroke:none
-```
-
-*purple = human decisions · green = AI execution · gray = shared artifacts*
+![The AI-native development loop — design-partner sessions → DECISIONS.md → PLANNING.md → acceptance tests → human verification gate → Claude Code implementation → learnings, looping back to sessions. Purple = human decisions, green = AI execution, grey = shared artifacts.](docs/assets/ai-native-dev-loop.jpg)
 
 **Built AI-natively, with the human holding the gates.** The system was designed
 through structured AI design-partner sessions — one question at a time, every
